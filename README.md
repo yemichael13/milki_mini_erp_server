@@ -307,7 +307,13 @@ npm run dev
 
 ---
 
-# 🧪 Testing Expectations
+# 🧪 Testing
+
+Run the test suite (requires MySQL with schema applied and `.env` configured):
+
+```bash
+npm test
+```
 
 Before production deployment, the system must validate:
 
@@ -318,6 +324,8 @@ Before production deployment, the system must validate:
 * Payment updates
 * SQL aggregation accuracy
 * File upload validation
+
+The suite uses **Jest** and **Supertest** and covers all of the above via integration tests in `test/`.
 
 ---
 

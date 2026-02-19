@@ -2,4 +2,7 @@ node_modules
 dist
 logs
 .env
+.env.example
 uploads
+migrations
+test
