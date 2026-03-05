@@ -1,26 +1,74 @@
 const express = require("express");
-const createController = require("../controllers/transaction.controller");
+const productionController = require("../controllers/production.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const { uploadSingle } = require("../middlewares/upload.middleware");
 const {
-  createTransactionSchema,
-  listQuerySchema,
-  rejectBodySchema,
-} = require("../validations/transaction.validation");
+  createProductionTransactionSchema,
+  resubmitProductionTransactionSchema,
+  listProductionQuerySchema,
+  rejectSchema,
+} = require("../validations/production.validation");
 
 const router = express.Router();
-const controller = createController("production");
 
 router.use(authMiddleware);
 
-router.get("/", validate(listQuerySchema, "query"), roleMiddleware("production", "accountant", "manager", "admin"), controller.list);
-router.get("/:id", roleMiddleware("production", "accountant", "manager", "admin"), controller.getById);
-router.post("/", roleMiddleware("production", "admin"), uploadSingle("receipt"), validate(createTransactionSchema), controller.create);
-router.post("/:id/receipt", roleMiddleware("production", "admin"), uploadSingle("receipt"), controller.uploadReceipt);
-router.post("/:id/accountant-approve", roleMiddleware("accountant", "admin"), controller.accountantApprove);
-router.post("/:id/manager-approve", roleMiddleware("manager", "admin"), controller.managerApprove);
-router.post("/:id/reject", roleMiddleware("accountant", "manager", "admin"), validate(rejectBodySchema), controller.reject);
+// Officer endpoints
+router.get(
+  "/mine",
+  roleMiddleware("production_officer"),
+  validate(listProductionQuerySchema, "query"),
+  productionController.listMine
+);
+router.post(
+  "/",
+  roleMiddleware("production_officer"),
+  uploadSingle("receipt"),
+  validate(createProductionTransactionSchema),
+  productionController.create
+);
+router.post(
+  "/:id/receipt",
+  roleMiddleware("production_officer"),
+  uploadSingle("receipt"),
+  productionController.uploadReceipt
+);
+router.put(
+  "/:id/resubmit",
+  roleMiddleware("production_officer"),
+  validate(resubmitProductionTransactionSchema),
+  productionController.resubmit
+);
+
+// Accountant / Manager endpoints
+router.get(
+  "/",
+  roleMiddleware("accountant", "general_manager"),
+  validate(listProductionQuerySchema, "query"),
+  productionController.listAll
+);
+router.get(
+  "/:id",
+  roleMiddleware("accountant", "general_manager"),
+  productionController.getById
+);
+router.post(
+  "/:id/accountant-approve",
+  roleMiddleware("accountant"),
+  productionController.accountantApprove
+);
+router.post(
+  "/:id/manager-approve",
+  roleMiddleware("general_manager"),
+  productionController.managerApprove
+);
+router.post(
+  "/:id/reject",
+  roleMiddleware("accountant", "general_manager"),
+  validate(rejectSchema),
+  productionController.reject
+);
 
 module.exports = router;

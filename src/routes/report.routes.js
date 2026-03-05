@@ -8,10 +8,10 @@ const { reportQuerySchema } = require("../validations/report.validation");
 const router = express.Router();
 
 router.use(authMiddleware);
-router.use(roleMiddleware("accountant", "manager", "admin"));
+router.use(roleMiddleware("accountant", "general_manager"));
 
 router.get("/customer-credit", validate(reportQuerySchema, "query"), reportController.customerCredit);
-router.get("/workflow-summary", validate(reportQuerySchema, "query"), reportController.workflowSummary);
-router.get("/customer-credit/:customerId", validate(reportQuerySchema, "query"), reportController.customerCreditDetail);
+router.get("/supplier-debt", validate(reportQuerySchema, "query"), reportController.supplierDebt);
+router.get("/summary", validate(reportQuerySchema, "query"), reportController.summary);
 
 module.exports = router;

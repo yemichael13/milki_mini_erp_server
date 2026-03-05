@@ -1,25 +1,26 @@
 const pool = require("../config/db");
 
 const customerCreditReport = async (fromDate = null, toDate = null) => {
-  let txSql = `
-    SELECT customer_id, SUM(total_amount) as total_approved
-    FROM transactions
-    WHERE status = 'manager_approved'
+  // manager-approved sales that were made on credit
+  let salesSql = `
+    SELECT customer_id, SUM(amount) as total_credit_sales
+    FROM sales_transactions
+    WHERE status = 'manager_approved' AND payment_type = 'credit'
   `;
-  const txParams = [];
+  const salesParams = [];
   if (fromDate) {
-    txSql += " AND DATE(created_at) >= ?";
-    txParams.push(fromDate);
+    salesSql += " AND DATE(created_at) >= ?";
+    salesParams.push(fromDate);
   }
   if (toDate) {
-    txSql += " AND DATE(created_at) <= ?";
-    txParams.push(toDate);
+    salesSql += " AND DATE(created_at) <= ?";
+    salesParams.push(toDate);
   }
-  txSql += " GROUP BY customer_id";
+  salesSql += " GROUP BY customer_id";
 
   let paySql = `
-    SELECT customer_id, SUM(amount) as total_paid
-    FROM payments
+    SELECT customer_id, SUM(amount) as total_customer_payments
+    FROM customer_payments
     WHERE 1=1
   `;
   const payParams = [];
@@ -33,16 +34,16 @@ const customerCreditReport = async (fromDate = null, toDate = null) => {
   }
   paySql += " GROUP BY customer_id";
 
-  const [txRows] = await pool.query(txSql, txParams);
+  const [salesRows] = await pool.query(salesSql, salesParams);
   const [payRows] = await pool.query(paySql, payParams);
 
-  const txByCustomer = {};
-  txRows.forEach((r) => {
-    txByCustomer[r.customer_id] = Number(r.total_approved);
+  const salesByCustomer = {};
+  salesRows.forEach((r) => {
+    salesByCustomer[r.customer_id] = Number(r.total_credit_sales);
   });
   const payByCustomer = {};
   payRows.forEach((r) => {
-    payByCustomer[r.customer_id] = Number(r.total_paid);
+    payByCustomer[r.customer_id] = Number(r.total_customer_payments);
   });
 
   const [customers] = await pool.query("SELECT id, name, email FROM customers ORDER BY name");
@@ -50,54 +51,36 @@ const customerCreditReport = async (fromDate = null, toDate = null) => {
     customer_id: c.id,
     customer_name: c.name,
     email: c.email,
-    total_approved: txByCustomer[c.id] || 0,
-    total_paid: payByCustomer[c.id] || 0,
-    credit_balance: (txByCustomer[c.id] || 0) - (payByCustomer[c.id] || 0),
+    total_credit_sales: salesByCustomer[c.id] || 0,
+    total_customer_payments: payByCustomer[c.id] || 0,
+    credit_balance: (salesByCustomer[c.id] || 0) - (payByCustomer[c.id] || 0),
   }));
 };
 
-const workflowFinancialSummary = async (fromDate = null, toDate = null) => {
-  let sql = `
-    SELECT workflow, status, SUM(total_amount) as total, COUNT(*) as count
-    FROM transactions
+const supplierDebtReport = async (fromDate = null, toDate = null) => {
+  // manager-approved procurement that was made on credit
+  let procSql = `
+    SELECT supplier_id, SUM(amount) as total_credit_procurement
+    FROM procurement_transactions
+    WHERE status = 'manager_approved' AND payment_type = 'credit'
+  `;
+  const procParams = [];
+  if (fromDate) {
+    procSql += " AND DATE(created_at) >= ?";
+    procParams.push(fromDate);
+  }
+  if (toDate) {
+    procSql += " AND DATE(created_at) <= ?";
+    procParams.push(toDate);
+  }
+  procSql += " GROUP BY supplier_id";
+
+  let paySql = `
+    SELECT supplier_id, SUM(amount) as total_supplier_payments
+    FROM supplier_payments
     WHERE 1=1
   `;
-  const params = [];
-  if (fromDate) {
-    sql += " AND DATE(created_at) >= ?";
-    params.push(fromDate);
-  }
-  if (toDate) {
-    sql += " AND DATE(created_at) <= ?";
-    params.push(toDate);
-  }
-  sql += " GROUP BY workflow, status ORDER BY workflow, status";
-  const [rows] = await pool.query(sql, params);
-  return rows.map((r) => ({
-    workflow: r.workflow,
-    status: r.status,
-    total: Number(r.total),
-    count: r.count,
-  }));
-};
-
-const customerCreditById = async (customerId, fromDate = null, toDate = null) => {
-  let txSql = `
-    SELECT COALESCE(SUM(total_amount), 0) as total
-    FROM transactions
-    WHERE customer_id = ? AND status = 'manager_approved'
-  `;
-  const txParams = [customerId];
-  if (fromDate) {
-    txSql += " AND DATE(created_at) >= ?";
-    txParams.push(fromDate);
-  }
-  if (toDate) {
-    txSql += " AND DATE(created_at) <= ?";
-    txParams.push(toDate);
-  }
-  let paySql = "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE customer_id = ?";
-  const payParams = [customerId];
+  const payParams = [];
   if (fromDate) {
     paySql += " AND payment_date >= ?";
     payParams.push(fromDate);
@@ -106,17 +89,41 @@ const customerCreditById = async (customerId, fromDate = null, toDate = null) =>
     paySql += " AND payment_date <= ?";
     payParams.push(toDate);
   }
-  const [[txRow], [payRow]] = await Promise.all([
-    pool.query(txSql, txParams),
-    pool.query(paySql, payParams),
-  ]);
-  const totalApproved = Number(txRow.total);
-  const totalPaid = Number(payRow.total);
-  return { total_approved: totalApproved, total_paid: totalPaid, credit_balance: totalApproved - totalPaid };
+  paySql += " GROUP BY supplier_id";
+
+  const [procRows] = await pool.query(procSql, procParams);
+  const [payRows] = await pool.query(paySql, payParams);
+
+  const procBySupplier = {};
+  procRows.forEach((r) => {
+    procBySupplier[r.supplier_id] = Number(r.total_credit_procurement);
+  });
+  const payBySupplier = {};
+  payRows.forEach((r) => {
+    payBySupplier[r.supplier_id] = Number(r.total_supplier_payments);
+  });
+
+  const [suppliers] = await pool.query("SELECT id, name, email FROM suppliers ORDER BY name");
+  return suppliers.map((s) => ({
+    supplier_id: s.id,
+    supplier_name: s.name,
+    email: s.email,
+    total_credit_procurement: procBySupplier[s.id] || 0,
+    total_supplier_payments: payBySupplier[s.id] || 0,
+    debt_balance: (procBySupplier[s.id] || 0) - (payBySupplier[s.id] || 0),
+  }));
 };
 
 module.exports = {
   customerCreditReport,
-  workflowFinancialSummary,
-  customerCreditById,
+  supplierDebtReport,
+  summary: async (fromDate = null, toDate = null) => {
+    const [creditRows, debtRows] = await Promise.all([
+      customerCreditReport(fromDate, toDate),
+      supplierDebtReport(fromDate, toDate),
+    ]);
+    const totalCustomerCredit = creditRows.reduce((sum, r) => sum + Number(r.credit_balance), 0);
+    const totalSupplierDebt = debtRows.reduce((sum, r) => sum + Number(r.debt_balance), 0);
+    return { total_customer_credit: totalCustomerCredit, total_supplier_debt: totalSupplierDebt };
+  },
 };

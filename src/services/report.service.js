@@ -3,21 +3,35 @@ const reportRepository = require("../repositories/report.repository");
 const customerCreditReport = async (fromDate, toDate, format = "json") => {
   const data = await reportRepository.customerCreditReport(fromDate, toDate);
   if (format === "csv") {
-    return toCSV(data, ["customer_id", "customer_name", "email", "total_approved", "total_paid", "credit_balance"]);
+    return toCSV(data, [
+      "customer_id",
+      "customer_name",
+      "email",
+      "total_credit_sales",
+      "total_customer_payments",
+      "credit_balance",
+    ]);
   }
   return data;
 };
 
-const workflowFinancialSummary = async (fromDate, toDate, format = "json") => {
-  const data = await reportRepository.workflowFinancialSummary(fromDate, toDate);
+const supplierDebtReport = async (fromDate, toDate, format = "json") => {
+  const data = await reportRepository.supplierDebtReport(fromDate, toDate);
   if (format === "csv") {
-    return toCSV(data, ["workflow", "status", "total", "count"]);
+    return toCSV(data, [
+      "supplier_id",
+      "supplier_name",
+      "email",
+      "total_credit_procurement",
+      "total_supplier_payments",
+      "debt_balance",
+    ]);
   }
   return data;
 };
 
-const customerCreditById = async (customerId, fromDate, toDate) => {
-  return reportRepository.customerCreditById(customerId, fromDate, toDate);
+const summary = async (fromDate, toDate) => {
+  return reportRepository.summary(fromDate, toDate);
 };
 
 function toCSV(rows, headers) {
@@ -35,6 +49,6 @@ function escapeCSV(val) {
 
 module.exports = {
   customerCreditReport,
-  workflowFinancialSummary,
-  customerCreditById,
+  supplierDebtReport,
+  summary,
 };

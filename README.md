@@ -197,6 +197,24 @@ Foreign key constraints are enforced.
 
 # 📡 API Structure
 
+## Initial Data Seeding
+
+When you initialize a fresh database there is no user to authenticate with.  A simple helper script is provided to create the first administrator account:
+
+```bash
+cd server
+node src/scripts/seedAdmin.js
+```
+
+The script will insert an admin user only if one with the same email does not already exist.  It uses the credentials below:
+
+* **Email:** admin@milki.com
+* **Password:** Milkiadmin@2026
+
+You can run the script again later; it will detect an existing account and skip creation.
+
+
+
 Base URL:
 
 ```

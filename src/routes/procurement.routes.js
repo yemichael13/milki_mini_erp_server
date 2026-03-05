@@ -1,26 +1,74 @@
 const express = require("express");
-const createController = require("../controllers/transaction.controller");
+const procurementController = require("../controllers/procurement.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
 const { uploadSingle } = require("../middlewares/upload.middleware");
 const {
-  createTransactionSchema,
-  listQuerySchema,
-  rejectBodySchema,
-} = require("../validations/transaction.validation");
+  createProcurementTransactionSchema,
+  resubmitProcurementTransactionSchema,
+  listProcurementQuerySchema,
+  rejectSchema,
+} = require("../validations/procurement.validation");
 
 const router = express.Router();
-const controller = createController("procurement");
 
 router.use(authMiddleware);
 
-router.get("/", validate(listQuerySchema, "query"), roleMiddleware("procurement", "accountant", "manager", "admin"), controller.list);
-router.get("/:id", roleMiddleware("procurement", "accountant", "manager", "admin"), controller.getById);
-router.post("/", roleMiddleware("procurement", "admin"), uploadSingle("receipt"), validate(createTransactionSchema), controller.create);
-router.post("/:id/receipt", roleMiddleware("procurement", "admin"), uploadSingle("receipt"), controller.uploadReceipt);
-router.post("/:id/accountant-approve", roleMiddleware("accountant", "admin"), controller.accountantApprove);
-router.post("/:id/manager-approve", roleMiddleware("manager", "admin"), controller.managerApprove);
-router.post("/:id/reject", roleMiddleware("accountant", "manager", "admin"), validate(rejectBodySchema), controller.reject);
+// Officer endpoints
+router.get(
+  "/mine",
+  roleMiddleware("procurement_officer"),
+  validate(listProcurementQuerySchema, "query"),
+  procurementController.listMine
+);
+router.post(
+  "/",
+  roleMiddleware("procurement_officer"),
+  uploadSingle("receipt"),
+  validate(createProcurementTransactionSchema),
+  procurementController.create
+);
+router.post(
+  "/:id/receipt",
+  roleMiddleware("procurement_officer"),
+  uploadSingle("receipt"),
+  procurementController.uploadReceipt
+);
+router.put(
+  "/:id/resubmit",
+  roleMiddleware("procurement_officer"),
+  validate(resubmitProcurementTransactionSchema),
+  procurementController.resubmit
+);
+
+// Accountant / Manager endpoints
+router.get(
+  "/",
+  roleMiddleware("accountant", "general_manager"),
+  validate(listProcurementQuerySchema, "query"),
+  procurementController.listAll
+);
+router.get(
+  "/:id",
+  roleMiddleware("accountant", "general_manager"),
+  procurementController.getById
+);
+router.post(
+  "/:id/accountant-approve",
+  roleMiddleware("accountant"),
+  procurementController.accountantApprove
+);
+router.post(
+  "/:id/manager-approve",
+  roleMiddleware("general_manager"),
+  procurementController.managerApprove
+);
+router.post(
+  "/:id/reject",
+  roleMiddleware("accountant", "general_manager"),
+  validate(rejectSchema),
+  procurementController.reject
+);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 const customerRepository = require("../repositories/customer.repository");
-const calculateCredit = require("../utils/creditCalculator");
+const creditDebtService = require("./creditDebt.service");
 
 const list = async (search) => {
   return customerRepository.findAll(search);
@@ -13,25 +13,14 @@ const getById = async (id, includeCredit = false) => {
     throw err;
   }
   if (includeCredit) {
-    customer.credit_balance = await calculateCredit(id);
+    customer.credit_balance = await creditDebtService.getCustomerCredit(id);
   }
   return customer;
 };
 
-const create = async (data) => {
-  const id = await customerRepository.create(data);
+const create = async (data, createdBy) => {
+  const id = await customerRepository.create(data, createdBy);
   return customerRepository.findById(id);
 };
 
-const update = async (id, data) => {
-  await getById(id);
-  await customerRepository.update(id, data);
-  return customerRepository.findById(id);
-};
-
-const remove = async (id) => {
-  await getById(id);
-  return customerRepository.deleteById(id);
-};
-
-module.exports = { list, getById, create, update, remove };
+module.exports = { list, getById, create };

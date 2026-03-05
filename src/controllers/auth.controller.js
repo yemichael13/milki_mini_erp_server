@@ -12,16 +12,6 @@ const login = async (req, res, next) => {
   }
 };
 
-const register = async (req, res, next) => {
-  try {
-    const result = await authService.register(req.body);
-    logger.info({ message: "User registered", userId: result.id });
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-};
-
 const me = async (req, res, next) => {
   try {
     const user = await require("../services/user.service").getById(req.user.id);
@@ -31,4 +21,4 @@ const me = async (req, res, next) => {
   }
 };
 
-module.exports = { login, register, me };
+module.exports = { login, me };

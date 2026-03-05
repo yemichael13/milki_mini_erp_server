@@ -2,7 +2,7 @@ const pool = require("../config/db");
 
 const findById = async (id) => {
   const [rows] = await pool.query(
-    "SELECT id, name, email, phone, address, created_by, created_at FROM customers WHERE id = ?",
+    "SELECT id, name, email, phone, address, created_by, created_at FROM suppliers WHERE id = ?",
     [id]
   );
   return rows[0] || null;
@@ -10,7 +10,7 @@ const findById = async (id) => {
 
 const create = async (data, createdBy) => {
   const [result] = await pool.query(
-    "INSERT INTO customers (name, email, phone, address, created_by) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO suppliers (name, email, phone, address, created_by) VALUES (?, ?, ?, ?, ?)",
     [data.name, data.email || null, data.phone || null, data.address || null, createdBy]
   );
   return result.insertId;
@@ -18,7 +18,7 @@ const create = async (data, createdBy) => {
 
 const findAll = async (search = "") => {
   let sql =
-    "SELECT id, name, email, phone, address, created_by, created_at FROM customers WHERE 1=1";
+    "SELECT id, name, email, phone, address, created_by, created_at FROM suppliers WHERE 1=1";
   const params = [];
   if (search) {
     sql += " AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)";
@@ -35,3 +35,4 @@ module.exports = {
   create,
   findAll,
 };
+

@@ -1,0 +1,32 @@
+const Joi = require("joi");
+
+const createProcurementTransactionSchema = Joi.object({
+  supplier_id: Joi.number().integer().positive().required(),
+  amount: Joi.number().positive().required(),
+  description: Joi.string().allow("", null),
+  payment_type: Joi.string().valid("paid", "credit").required(),
+});
+
+const resubmitProcurementTransactionSchema = Joi.object({
+  supplier_id: Joi.number().integer().positive().required(),
+  amount: Joi.number().positive().required(),
+  description: Joi.string().allow("", null),
+  payment_type: Joi.string().valid("paid", "credit").required(),
+  rejection_reason: Joi.any().forbidden(),
+}).required();
+
+const listProcurementQuerySchema = Joi.object({
+  status: Joi.string().valid("pending", "accountant_approved", "manager_approved", "rejected"),
+});
+
+const rejectSchema = Joi.object({
+  rejection_reason: Joi.string().allow("", null).required(),
+});
+
+module.exports = {
+  createProcurementTransactionSchema,
+  resubmitProcurementTransactionSchema,
+  listProcurementQuerySchema,
+  rejectSchema,
+};
+
