@@ -77,7 +77,7 @@ const resubmit = async (user, id, data) => {
   return procurementTxRepo.findById(id);
 };
 
-const accountantApprove = async (user, id) => {
+const accountantApprove = async (user, id, description, receiptUrl) => {
   if (user.role !== "accountant") {
     const err = new Error("Forbidden");
     err.statusCode = 403;
@@ -89,11 +89,11 @@ const accountantApprove = async (user, id) => {
     err.statusCode = 400;
     throw err;
   }
-  await procurementTxRepo.setAccountantApproved(id, user.id);
+  await procurementTxRepo.setAccountantApproved(id, user.id, description, receiptUrl);
   return procurementTxRepo.findById(id);
 };
 
-const managerApprove = async (user, id) => {
+const managerApprove = async (user, id, description, receiptUrl) => {
   if (user.role !== "general_manager") {
     const err = new Error("Forbidden");
     err.statusCode = 403;
@@ -105,11 +105,11 @@ const managerApprove = async (user, id) => {
     err.statusCode = 400;
     throw err;
   }
-  await procurementTxRepo.setManagerApproved(id, user.id);
+  await procurementTxRepo.setManagerApproved(id, user.id, description, receiptUrl);
   return procurementTxRepo.findById(id);
 };
 
-const reject = async (user, id, reason) => {
+const reject = async (user, id, reason, receiptUrl) => {
   if (!["accountant", "general_manager"].includes(user.role)) {
     const err = new Error("Forbidden");
     err.statusCode = 403;
@@ -121,7 +121,7 @@ const reject = async (user, id, reason) => {
     err.statusCode = 400;
     throw err;
   }
-  await procurementTxRepo.setRejected(id, user.id, reason);
+  await procurementTxRepo.setRejected(id, user.id, reason, receiptUrl);
   return procurementTxRepo.findById(id);
 };
 

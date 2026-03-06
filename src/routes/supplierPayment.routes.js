@@ -13,18 +13,18 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// View: Accountant + General Manager
+// View: Procurement officer only
 router.get(
   "/",
-  roleMiddleware("accountant", "general_manager"),
+  roleMiddleware("procurement_officer"),
   validate(listSupplierPaymentQuerySchema, "query"),
   supplierPaymentController.list
 );
 
-// Create: Accountant only
+// Create: Procurement officer only
 router.post(
   "/",
-  roleMiddleware("accountant"),
+  roleMiddleware("procurement_officer"),
   uploadSingle("receipt"),
   validate(createSupplierPaymentSchema),
   supplierPaymentController.create

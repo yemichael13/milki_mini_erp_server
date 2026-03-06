@@ -29,7 +29,12 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const receiptUrl = req.file?.path || null;
+    if (!req.file) {
+      const err = new Error("Receipt image is required");
+      err.statusCode = 400;
+      throw err;
+    }
+    const receiptUrl = req.file.path;
     const tx = await salesService.create(req.user, req.body, receiptUrl);
     res.status(201).json(tx);
   } catch (err) {
@@ -63,7 +68,9 @@ const resubmit = async (req, res, next) => {
 
 const accountantApprove = async (req, res, next) => {
   try {
-    const tx = await salesService.accountantApprove(req.user, Number(req.params.id));
+    const description = req.body.description;
+    const receiptUrl = req.file?.path || null;
+    const tx = await salesService.accountantApprove(req.user, Number(req.params.id), description, receiptUrl);
     res.json(tx);
   } catch (err) {
     next(err);
@@ -72,7 +79,9 @@ const accountantApprove = async (req, res, next) => {
 
 const managerApprove = async (req, res, next) => {
   try {
-    const tx = await salesService.managerApprove(req.user, Number(req.params.id));
+    const description = req.body.description;
+    const receiptUrl = req.file?.path || null;
+    const tx = await salesService.managerApprove(req.user, Number(req.params.id), description, receiptUrl);
     res.json(tx);
   } catch (err) {
     next(err);
@@ -81,7 +90,9 @@ const managerApprove = async (req, res, next) => {
 
 const reject = async (req, res, next) => {
   try {
-    const tx = await salesService.reject(req.user, Number(req.params.id), req.body.rejection_reason);
+    const reason = req.body.description; // description field used as rejection reason
+    const receiptUrl = req.file?.path || null;
+    const tx = await salesService.reject(req.user, Number(req.params.id), reason, receiptUrl);
     res.json(tx);
   } catch (err) {
     next(err);

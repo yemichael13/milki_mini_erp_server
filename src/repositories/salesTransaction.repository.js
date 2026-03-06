@@ -35,8 +35,12 @@ const listMine = async (userId, status = null) => {
              WHERE st.created_by = ?`;
   const params = [userId];
   if (status) {
-    sql += " AND st.status = ?";
-    params.push(status);
+    if (status === 'approved') {
+      sql += " AND st.status IN ('accountant_approved','manager_approved')";
+    } else {
+      sql += " AND st.status = ?";
+      params.push(status);
+    }
   }
   sql += " ORDER BY st.created_at DESC";
   const [rows] = await pool.query(sql, params);
@@ -50,12 +54,20 @@ const listAll = async (status = null) => {
              ORDER BY st.created_at DESC`;
   const params = [];
   if (status) {
-    sql = `SELECT st.*, c.name AS customer_name
-           FROM sales_transactions st
-           JOIN customers c ON c.id = st.customer_id
-           WHERE st.status = ?
-           ORDER BY st.created_at DESC`;
-    params.push(status);
+    if (status === 'approved') {
+      sql = `SELECT st.*, c.name AS customer_name
+             FROM sales_transactions st
+             JOIN customers c ON c.id = st.customer_id
+             WHERE st.status IN ('accountant_approved','manager_approved')
+             ORDER BY st.created_at DESC`;
+    } else {
+      sql = `SELECT st.*, c.name AS customer_name
+             FROM sales_transactions st
+             JOIN customers c ON c.id = st.customer_id
+             WHERE st.status = ?
+             ORDER BY st.created_at DESC`;
+      params.push(status);
+    }
   }
   const [rows] = await pool.query(sql, params);
   return rows;
@@ -96,39 +108,44 @@ const resubmit = async (id, data) => {
   return result.affectedRows;
 };
 
-const setAccountantApproved = async (id, userId) => {
+const setAccountantApproved = async (id, userId, description = null, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE sales_transactions
      SET status = 'accountant_approved',
          accountant_approved_by = ?,
+         approval_description = ?,
+         approval_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, id]
+    [userId, description, receiptUrl, id]
   );
   return result.affectedRows;
 };
 
-const setManagerApproved = async (id, userId) => {
+const setManagerApproved = async (id, userId, description = null, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE sales_transactions
      SET status = 'manager_approved',
          manager_approved_by = ?,
+         approval_description = ?,
+         approval_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, id]
+    [userId, description, receiptUrl, id]
   );
   return result.affectedRows;
 };
 
-const setRejected = async (id, userId, reason) => {
+const setRejected = async (id, userId, reason, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE sales_transactions
      SET status = 'rejected',
          rejected_by = ?,
          rejection_reason = ?,
+         rejection_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, reason || null, id]
+    [userId, reason || null, receiptUrl, id]
   );
   return result.affectedRows;
 };

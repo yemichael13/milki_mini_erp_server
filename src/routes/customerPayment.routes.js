@@ -13,18 +13,18 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// View: Accountant + General Manager
+// View: Sales officer only (no accountant/manager)
 router.get(
   "/",
-  roleMiddleware("accountant", "general_manager"),
+  roleMiddleware("sales_officer"),
   validate(listCustomerPaymentQuerySchema, "query"),
   customerPaymentController.list
 );
 
-// Create: Accountant only
+// Create: Sales officer only
 router.post(
   "/",
-  roleMiddleware("accountant"),
+  roleMiddleware("sales_officer"),
   uploadSingle("receipt"),
   validate(createCustomerPaymentSchema),
   customerPaymentController.create

@@ -57,16 +57,19 @@ router.get(
 router.post(
   "/:id/accountant-approve",
   roleMiddleware("accountant"),
+  uploadSingle("receipt"),
   procurementController.accountantApprove
 );
 router.post(
   "/:id/manager-approve",
   roleMiddleware("general_manager"),
+  uploadSingle("receipt"),
   procurementController.managerApprove
 );
 router.post(
   "/:id/reject",
   roleMiddleware("accountant", "general_manager"),
+  uploadSingle("receipt"),
   validate(rejectSchema),
   procurementController.reject
 );

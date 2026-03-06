@@ -22,8 +22,12 @@ const listMine = async (userId, status = null) => {
   let sql = `SELECT * FROM production_transactions WHERE created_by = ?`;
   const params = [userId];
   if (status) {
-    sql += " AND status = ?";
-    params.push(status);
+    if (status === 'approved') {
+      sql += " AND status IN ('accountant_approved','manager_approved')";
+    } else {
+      sql += " AND status = ?";
+      params.push(status);
+    }
   }
   sql += " ORDER BY created_at DESC";
   const [rows] = await pool.query(sql, params);
@@ -34,8 +38,12 @@ const listAll = async (status = null) => {
   let sql = `SELECT * FROM production_transactions ORDER BY created_at DESC`;
   const params = [];
   if (status) {
-    sql = `SELECT * FROM production_transactions WHERE status = ? ORDER BY created_at DESC`;
-    params.push(status);
+    if (status === 'approved') {
+      sql = `SELECT * FROM production_transactions WHERE status IN ('accountant_approved','manager_approved') ORDER BY created_at DESC`;
+    } else {
+      sql = `SELECT * FROM production_transactions WHERE status = ? ORDER BY created_at DESC`;
+      params.push(status);
+    }
   }
   const [rows] = await pool.query(sql, params);
   return rows;
@@ -68,39 +76,44 @@ const resubmit = async (id, data) => {
   return result.affectedRows;
 };
 
-const setAccountantApproved = async (id, userId) => {
+const setAccountantApproved = async (id, userId, description = null, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE production_transactions
      SET status = 'accountant_approved',
          accountant_approved_by = ?,
+         approval_description = ?,
+         approval_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, id]
+    [userId, description, receiptUrl, id]
   );
   return result.affectedRows;
 };
 
-const setManagerApproved = async (id, userId) => {
+const setManagerApproved = async (id, userId, description = null, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE production_transactions
      SET status = 'manager_approved',
          manager_approved_by = ?,
+         approval_description = ?,
+         approval_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, id]
+    [userId, description, receiptUrl, id]
   );
   return result.affectedRows;
 };
 
-const setRejected = async (id, userId, reason) => {
+const setRejected = async (id, userId, reason, receiptUrl = null) => {
   const [result] = await pool.query(
     `UPDATE production_transactions
      SET status = 'rejected',
          rejected_by = ?,
          rejection_reason = ?,
+         rejection_receipt_url = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [userId, reason || null, id]
+    [userId, reason || null, receiptUrl, id]
   );
   return result.affectedRows;
 };
