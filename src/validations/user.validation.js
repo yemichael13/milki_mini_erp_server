@@ -3,9 +3,13 @@ const Joi = require("joi");
 const updateUserSchema = Joi.object({
   full_name: Joi.string().min(1),
   role: Joi.string().valid(
+    "system_admin",
     "admin",
     "general_manager",
     "accountant",
+    "sales",
+    "procurement",
+    "production",
     "production_officer",
     "procurement_officer",
     "sales_officer"
@@ -20,9 +24,13 @@ const createUserSchema = Joi.object({
   full_name: Joi.string().min(1).required(),
   role: Joi.string()
     .valid(
+      "system_admin",
       "admin",
       "general_manager",
       "accountant",
+      "sales",
+      "procurement",
+      "production",
       "production_officer",
       "procurement_officer",
       "sales_officer"

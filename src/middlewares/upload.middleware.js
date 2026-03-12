@@ -2,10 +2,11 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-const uploadDirName = process.env.UPLOAD_DIR || "uploads";
+const uploadRoot = process.env.UPLOAD_DIR || "uploads";
+const uploadDirName = path.join(uploadRoot, "receipts");
 const uploadDir = path.join(__dirname, "..", uploadDirName);
 const maxSize = Number(process.env.UPLOAD_MAX_SIZE) || 5 * 1024 * 1024; // 5MB
-const allowedMimes = (process.env.UPLOAD_ALLOWED_MIMES || "image/jpeg,image/png,image/gif,application/pdf")
+const allowedMimes = (process.env.UPLOAD_ALLOWED_MIMES || "image/jpeg,image/png")
   .split(",")
   .map((m) => m.trim());
 
@@ -28,7 +29,7 @@ const fileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    const err = new Error("Invalid file type. Only image and PDF files are allowed.");
+    const err = new Error("Invalid file type. Only JPG and PNG images are allowed.");
     err.statusCode = 400;
     cb(err, false);
   }

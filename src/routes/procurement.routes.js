@@ -18,26 +18,26 @@ router.use(authMiddleware);
 // Officer endpoints
 router.get(
   "/mine",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement", "procurement_officer"),
   validate(listProcurementQuerySchema, "query"),
   procurementController.listMine
 );
 router.post(
   "/",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement", "procurement_officer"),
   uploadSingle("receipt"),
   validate(createProcurementTransactionSchema),
   procurementController.create
 );
 router.post(
   "/:id/receipt",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement", "procurement_officer"),
   uploadSingle("receipt"),
   procurementController.uploadReceipt
 );
 router.put(
   "/:id/resubmit",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement", "procurement_officer"),
   validate(resubmitProcurementTransactionSchema),
   procurementController.resubmit
 );

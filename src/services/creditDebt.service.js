@@ -2,56 +2,51 @@ const pool = require("../config/db");
 
 /**
  * Customer Credit:
- *   SUM(manager_approved sales_transactions WHERE payment_type='credit')
- * - SUM(all customer_payments)
+ *   SUM(manager_approved sales transactions WHERE payment_type='credit')
+ * - SUM(manager_approved sales transactions WHERE payment_type='paid')
  */
 async function getCustomerCredit(customerId) {
-  const [[salesRow]] = await pool.query(
-    `SELECT COALESCE(SUM(amount), 0) AS total
-     FROM sales_transactions
+  const [[row]] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN payment_type = 'credit' THEN amount ELSE 0 END), 0) AS total_credit,
+       COALESCE(SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END), 0) AS total_paid
+     FROM transactions
      WHERE customer_id = ?
        AND status = 'manager_approved'
-       AND payment_type = 'credit'`,
+       AND type = 'sale'`,
     [customerId]
   );
 
-  const [[payRow]] = await pool.query(
-    `SELECT COALESCE(SUM(amount), 0) AS total
-     FROM customer_payments
-     WHERE customer_id = ?`,
-    [customerId]
-  );
-
-  return Number(salesRow.total) - Number(payRow.total);
+  const totalCredit = Number(row.total_credit);
+  const totalPaid = Number(row.total_paid);
+  if (totalCredit === 0) return 0;
+  return totalCredit - totalPaid;
 }
 
 /**
  * Supplier Debt:
- *   SUM(manager_approved procurement_transactions WHERE payment_type='credit')
- * - SUM(all supplier_payments)
+ *   SUM(manager_approved procurement transactions WHERE payment_type='debt')
+ * - SUM(manager_approved procurement transactions WHERE payment_type='paid')
  */
 async function getSupplierDebt(supplierId) {
-  const [[procRow]] = await pool.query(
-    `SELECT COALESCE(SUM(amount), 0) AS total
-     FROM procurement_transactions
+  const [[row]] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN payment_type = 'debt' THEN amount ELSE 0 END), 0) AS total_debt,
+       COALESCE(SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END), 0) AS total_paid
+     FROM transactions
      WHERE supplier_id = ?
        AND status = 'manager_approved'
-       AND payment_type = 'credit'`,
+       AND type = 'procurement'`,
     [supplierId]
   );
 
-  const [[payRow]] = await pool.query(
-    `SELECT COALESCE(SUM(amount), 0) AS total
-     FROM supplier_payments
-     WHERE supplier_id = ?`,
-    [supplierId]
-  );
-
-  return Number(procRow.total) - Number(payRow.total);
+  const totalDebt = Number(row.total_debt);
+  const totalPaid = Number(row.total_paid);
+  if (totalDebt === 0) return 0;
+  return totalDebt - totalPaid;
 }
 
 module.exports = {
   getCustomerCredit,
   getSupplierDebt,
 };
-

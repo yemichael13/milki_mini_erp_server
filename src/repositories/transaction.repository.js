@@ -1,18 +1,21 @@
 const pool = require("../config/db");
 
-const WORKFLOW = Object.freeze(["sales", "production", "procurement"]);
-const STATUS = Object.freeze([
-  "pending",
-  "accountant_approved",
-  "manager_approved",
-  "rejected",
-]);
+const TYPES = Object.freeze(["sale", "procurement", "production"]);
+const SOURCE_DEPARTMENTS = Object.freeze(["sales", "procurement", "production"]);
+const PAYMENT_TYPES = Object.freeze(["paid", "credit", "debt"]);
+const STATUS = Object.freeze(["pending", "manager_approved", "rejected"]);
 
 const findById = async (id) => {
   const [rows] = await pool.query(
-    `SELECT t.*, c.name as customer_name 
-     FROM transactions t 
-     JOIN customers c ON t.customer_id = c.id 
+    `SELECT t.*,
+            t.receipt_image as receipt_path,
+            c.name as customer_name,
+            s.name as supplier_name,
+            u.full_name as created_by_name
+     FROM transactions t
+     LEFT JOIN customers c ON t.customer_id = c.id
+     LEFT JOIN suppliers s ON t.supplier_id = s.id
+     LEFT JOIN users u ON t.created_by = u.id
      WHERE t.id = ?`,
     [id]
   );
@@ -21,14 +24,17 @@ const findById = async (id) => {
 
 const create = async (data) => {
   const [result] = await pool.query(
-    `INSERT INTO transactions (customer_id, workflow, status, total_amount, description, receipt_path, created_by)
-     VALUES (?, ?, 'pending', ?, ?, ?, ?)`,
+    `INSERT INTO transactions (type, source_department, amount, payment_type, customer_id, supplier_id, receipt_image, description, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      data.customer_id,
-      data.workflow,
-      data.total_amount,
+      data.type,
+      data.source_department,
+      data.amount,
+      data.payment_type,
+      data.customer_id || null,
+      data.supplier_id || null,
+      data.receipt_image || null,
       data.description || null,
-      data.receipt_path || null,
       data.created_by,
     ]
   );
@@ -36,14 +42,25 @@ const create = async (data) => {
 };
 
 const findAll = async (filters = {}) => {
-  let sql = `SELECT t.*, c.name as customer_name 
-             FROM transactions t 
-             JOIN customers c ON t.customer_id = c.id 
+  let sql = `SELECT t.*,
+                    t.receipt_image as receipt_path,
+                    c.name as customer_name,
+                    s.name as supplier_name,
+                    u.full_name as created_by_name
+             FROM transactions t
+             LEFT JOIN customers c ON t.customer_id = c.id
+             LEFT JOIN suppliers s ON t.supplier_id = s.id
+             LEFT JOIN users u ON t.created_by = u.id
              WHERE 1=1`;
   const params = [];
-  if (filters.workflow) {
-    sql += " AND t.workflow = ?";
-    params.push(filters.workflow);
+
+  if (filters.type) {
+    sql += " AND t.type = ?";
+    params.push(filters.type);
+  }
+  if (filters.source_department) {
+    sql += " AND t.source_department = ?";
+    params.push(filters.source_department);
   }
   if (filters.status) {
     sql += " AND t.status = ?";
@@ -53,6 +70,14 @@ const findAll = async (filters = {}) => {
     sql += " AND t.customer_id = ?";
     params.push(filters.customer_id);
   }
+  if (filters.supplier_id) {
+    sql += " AND t.supplier_id = ?";
+    params.push(filters.supplier_id);
+  }
+  if (filters.created_by) {
+    sql += " AND t.created_by = ?";
+    params.push(filters.created_by);
+  }
   if (filters.from_date) {
     sql += " AND DATE(t.created_at) >= ?";
     params.push(filters.from_date);
@@ -61,6 +86,7 @@ const findAll = async (filters = {}) => {
     sql += " AND DATE(t.created_at) <= ?";
     params.push(filters.to_date);
   }
+
   sql += " ORDER BY t.created_at DESC";
   const [rows] = await pool.query(sql, params);
   return rows;
@@ -69,16 +95,15 @@ const findAll = async (filters = {}) => {
 const updateStatus = async (id, status, userId, rejectionReason = null) => {
   const updates = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
   const values = [status];
-  if (status === "accountant_approved") {
-    updates.push("accountant_approved_by = ?");
-    values.push(userId);
-  } else if (status === "manager_approved") {
+
+  if (status === "manager_approved") {
     updates.push("manager_approved_by = ?");
     values.push(userId);
   } else if (status === "rejected") {
     updates.push("rejected_by = ?", "rejection_reason = ?");
     values.push(userId, rejectionReason);
   }
+
   values.push(id);
   const [result] = await pool.query(
     `UPDATE transactions SET ${updates.join(", ")} WHERE id = ?`,
@@ -89,27 +114,85 @@ const updateStatus = async (id, status, userId, rejectionReason = null) => {
 
 const updateReceipt = async (id, receiptPath) => {
   const [result] = await pool.query(
-    "UPDATE transactions SET receipt_path = ? WHERE id = ?",
+    "UPDATE transactions SET receipt_image = ? WHERE id = ?",
     [receiptPath, id]
   );
   return result.affectedRows;
 };
 
-const getSumByCustomerAndStatus = async (customerId, status = "manager_approved") => {
+// Financial calculation methods - only manager_approved transactions affect totals
+const getCustomerCredit = async (customerId) => {
+  // Sum of credit transactions minus sum of paid transactions for this customer
   const [rows] = await pool.query(
-    "SELECT COALESCE(SUM(total_amount), 0) as total FROM transactions WHERE customer_id = ? AND status = ?",
-    [customerId, status]
+    `SELECT
+       COALESCE(SUM(CASE WHEN payment_type = 'credit' THEN amount ELSE 0 END), 0) as total_credit,
+       COALESCE(SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END), 0) as total_paid
+     FROM transactions
+     WHERE customer_id = ? AND status = 'manager_approved' AND type = 'sale'`,
+    [customerId]
   );
-  return Number(rows[0].total);
+  const totalCredit = Number(rows[0].total_credit);
+  const totalPaid = Number(rows[0].total_paid);
+  if (totalCredit === 0) return 0;
+  return totalCredit - totalPaid;
+};
+
+const getSupplierDebt = async (supplierId) => {
+  // Sum of debt transactions minus sum of paid transactions for this supplier
+  const [rows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN payment_type = 'debt' THEN amount ELSE 0 END), 0) as total_debt,
+       COALESCE(SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END), 0) as total_paid
+     FROM transactions
+     WHERE supplier_id = ? AND status = 'manager_approved' AND type = 'procurement'`,
+    [supplierId]
+  );
+  const totalDebt = Number(rows[0].total_debt);
+  const totalPaid = Number(rows[0].total_paid);
+  if (totalDebt === 0) return 0;
+  return totalDebt - totalPaid;
+};
+
+const getDepartmentTransactions = async (sourceDepartment, userRole = null) => {
+  let sql = `SELECT t.*,
+                    t.receipt_image as receipt_path,
+                    c.name as customer_name,
+                    s.name as supplier_name,
+                    u.full_name as created_by_name
+             FROM transactions t
+             LEFT JOIN customers c ON t.customer_id = c.id
+             LEFT JOIN suppliers s ON t.supplier_id = s.id
+             LEFT JOIN users u ON t.created_by = u.id
+             WHERE t.source_department = ?`;
+
+  const params = [sourceDepartment];
+
+  // Role-based filtering
+  if (userRole === 'sales') {
+    sql += " AND t.source_department = 'sales'";
+  } else if (userRole === 'procurement') {
+    sql += " AND t.source_department = 'procurement'";
+  } else if (userRole === 'production') {
+    sql += " AND t.source_department = 'production'";
+  }
+  // accountant and general_manager can see all
+
+  sql += " ORDER BY t.created_at DESC";
+  const [rows] = await pool.query(sql, params);
+  return rows;
 };
 
 module.exports = {
-  WORKFLOW,
+  TYPES,
+  SOURCE_DEPARTMENTS,
+  PAYMENT_TYPES,
   STATUS,
   findById,
   create,
   findAll,
   updateStatus,
   updateReceipt,
-  getSumByCustomerAndStatus,
+  getCustomerCredit,
+  getSupplierDebt,
+  getDepartmentTransactions,
 };

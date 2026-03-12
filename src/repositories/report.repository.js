@@ -1,49 +1,34 @@
 const pool = require("../config/db");
 
 const customerCreditReport = async (fromDate = null, toDate = null) => {
-  // manager-approved sales that were made on credit
-  let salesSql = `
-    SELECT customer_id, SUM(amount) as total_credit_sales
-    FROM sales_transactions
-    WHERE status = 'manager_approved' AND payment_type = 'credit'
+  // manager-approved sales transactions, split by payment type
+  let txSql = `
+    SELECT customer_id,
+           SUM(CASE WHEN payment_type = 'credit' THEN amount ELSE 0 END) as total_credit_sales,
+           SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END) as total_customer_payments
+    FROM transactions
+    WHERE status = 'manager_approved'
+      AND type = 'sale'
   `;
-  const salesParams = [];
+  const txParams = [];
   if (fromDate) {
-    salesSql += " AND DATE(created_at) >= ?";
-    salesParams.push(fromDate);
+    txSql += " AND DATE(created_at) >= ?";
+    txParams.push(fromDate);
   }
   if (toDate) {
-    salesSql += " AND DATE(created_at) <= ?";
-    salesParams.push(toDate);
+    txSql += " AND DATE(created_at) <= ?";
+    txParams.push(toDate);
   }
-  salesSql += " GROUP BY customer_id";
+  txSql += " GROUP BY customer_id";
 
-  let paySql = `
-    SELECT customer_id, SUM(amount) as total_customer_payments
-    FROM customer_payments
-    WHERE 1=1
-  `;
-  const payParams = [];
-  if (fromDate) {
-    paySql += " AND payment_date >= ?";
-    payParams.push(fromDate);
-  }
-  if (toDate) {
-    paySql += " AND payment_date <= ?";
-    payParams.push(toDate);
-  }
-  paySql += " GROUP BY customer_id";
+  const [txRows] = await pool.query(txSql, txParams);
 
-  const [salesRows] = await pool.query(salesSql, salesParams);
-  const [payRows] = await pool.query(paySql, payParams);
-
-  const salesByCustomer = {};
-  salesRows.forEach((r) => {
-    salesByCustomer[r.customer_id] = Number(r.total_credit_sales);
-  });
-  const payByCustomer = {};
-  payRows.forEach((r) => {
-    payByCustomer[r.customer_id] = Number(r.total_customer_payments);
+  const totalsByCustomer = {};
+  txRows.forEach((r) => {
+    totalsByCustomer[r.customer_id] = {
+      credit: Number(r.total_credit_sales),
+      paid: Number(r.total_customer_payments),
+    };
   });
 
   const [customers] = await pool.query("SELECT id, name, email FROM customers ORDER BY name");
@@ -51,56 +36,44 @@ const customerCreditReport = async (fromDate = null, toDate = null) => {
     customer_id: c.id,
     customer_name: c.name,
     email: c.email,
-    total_credit_sales: salesByCustomer[c.id] || 0,
-    total_customer_payments: payByCustomer[c.id] || 0,
-    credit_balance: (salesByCustomer[c.id] || 0) - (payByCustomer[c.id] || 0),
+    total_credit_sales: totalsByCustomer[c.id]?.credit || 0,
+    total_customer_payments: totalsByCustomer[c.id]?.paid || 0,
+    credit_balance:
+      (totalsByCustomer[c.id]?.credit || 0) === 0
+        ? 0
+        : (totalsByCustomer[c.id]?.credit || 0) - (totalsByCustomer[c.id]?.paid || 0),
   }));
 };
 
 const supplierDebtReport = async (fromDate = null, toDate = null) => {
-  // manager-approved procurement that was made on credit
-  let procSql = `
-    SELECT supplier_id, SUM(amount) as total_credit_procurement
-    FROM procurement_transactions
-    WHERE status = 'manager_approved' AND payment_type = 'credit'
+  // manager-approved procurement transactions, split by payment type
+  let txSql = `
+    SELECT supplier_id,
+           SUM(CASE WHEN payment_type = 'debt' THEN amount ELSE 0 END) as total_credit_procurement,
+           SUM(CASE WHEN payment_type = 'paid' THEN amount ELSE 0 END) as total_supplier_payments
+    FROM transactions
+    WHERE status = 'manager_approved'
+      AND type = 'procurement'
   `;
-  const procParams = [];
+  const txParams = [];
   if (fromDate) {
-    procSql += " AND DATE(created_at) >= ?";
-    procParams.push(fromDate);
+    txSql += " AND DATE(created_at) >= ?";
+    txParams.push(fromDate);
   }
   if (toDate) {
-    procSql += " AND DATE(created_at) <= ?";
-    procParams.push(toDate);
+    txSql += " AND DATE(created_at) <= ?";
+    txParams.push(toDate);
   }
-  procSql += " GROUP BY supplier_id";
+  txSql += " GROUP BY supplier_id";
 
-  let paySql = `
-    SELECT supplier_id, SUM(amount) as total_supplier_payments
-    FROM supplier_payments
-    WHERE 1=1
-  `;
-  const payParams = [];
-  if (fromDate) {
-    paySql += " AND payment_date >= ?";
-    payParams.push(fromDate);
-  }
-  if (toDate) {
-    paySql += " AND payment_date <= ?";
-    payParams.push(toDate);
-  }
-  paySql += " GROUP BY supplier_id";
+  const [txRows] = await pool.query(txSql, txParams);
 
-  const [procRows] = await pool.query(procSql, procParams);
-  const [payRows] = await pool.query(paySql, payParams);
-
-  const procBySupplier = {};
-  procRows.forEach((r) => {
-    procBySupplier[r.supplier_id] = Number(r.total_credit_procurement);
-  });
-  const payBySupplier = {};
-  payRows.forEach((r) => {
-    payBySupplier[r.supplier_id] = Number(r.total_supplier_payments);
+  const totalsBySupplier = {};
+  txRows.forEach((r) => {
+    totalsBySupplier[r.supplier_id] = {
+      debt: Number(r.total_credit_procurement),
+      paid: Number(r.total_supplier_payments),
+    };
   });
 
   const [suppliers] = await pool.query("SELECT id, name, email FROM suppliers ORDER BY name");
@@ -108,9 +81,12 @@ const supplierDebtReport = async (fromDate = null, toDate = null) => {
     supplier_id: s.id,
     supplier_name: s.name,
     email: s.email,
-    total_credit_procurement: procBySupplier[s.id] || 0,
-    total_supplier_payments: payBySupplier[s.id] || 0,
-    debt_balance: (procBySupplier[s.id] || 0) - (payBySupplier[s.id] || 0),
+    total_credit_procurement: totalsBySupplier[s.id]?.debt || 0,
+    total_supplier_payments: totalsBySupplier[s.id]?.paid || 0,
+    debt_balance:
+      (totalsBySupplier[s.id]?.debt || 0) === 0
+        ? 0
+        : (totalsBySupplier[s.id]?.debt || 0) - (totalsBySupplier[s.id]?.paid || 0),
   }));
 };
 

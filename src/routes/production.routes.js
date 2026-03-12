@@ -18,26 +18,26 @@ router.use(authMiddleware);
 // Officer endpoints
 router.get(
   "/mine",
-  roleMiddleware("production_officer"),
+  roleMiddleware("production", "production_officer"),
   validate(listProductionQuerySchema, "query"),
   productionController.listMine
 );
 router.post(
   "/",
-  roleMiddleware("production_officer"),
+  roleMiddleware("production", "production_officer"),
   uploadSingle("receipt"),
   validate(createProductionTransactionSchema),
   productionController.create
 );
 router.post(
   "/:id/receipt",
-  roleMiddleware("production_officer"),
+  roleMiddleware("production", "production_officer"),
   uploadSingle("receipt"),
   productionController.uploadReceipt
 );
 router.put(
   "/:id/resubmit",
-  roleMiddleware("production_officer"),
+  roleMiddleware("production", "production_officer"),
   validate(resubmitProductionTransactionSchema),
   productionController.resubmit
 );

@@ -9,23 +9,23 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// View customers: Sales Officer, Accountant, General Manager (admin explicitly excluded by spec)
+// View customers: Sales, Accountant, General Manager (system admin excluded by spec)
 router.get(
   "/",
-  roleMiddleware("sales_officer", "accountant", "general_manager"),
+  roleMiddleware("sales", "accountant", "general_manager"),
   validate(customerSearchSchema, "query"),
   customerController.list
 );
 router.get(
   "/:id",
-  roleMiddleware("sales_officer", "accountant", "general_manager"),
+  roleMiddleware("sales", "accountant", "general_manager"),
   customerController.getById
 );
 
-// Create customer: Sales Officer only
+// Create customer: Sales only
 router.post(
   "/",
-  roleMiddleware("sales_officer"),
+  roleMiddleware("sales"),
   validate(createCustomerSchema),
   customerController.create
 );

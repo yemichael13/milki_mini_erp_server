@@ -26,11 +26,7 @@ app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/customers", require("./routes/customer.routes"));
 app.use("/api/suppliers", require("./routes/supplier.routes"));
-app.use("/api/sales", require("./routes/sales.routes"));
-app.use("/api/production", require("./routes/production.routes"));
-app.use("/api/procurement", require("./routes/procurement.routes"));
-app.use("/api/customer-payments", require("./routes/customerPayment.routes"));
-app.use("/api/supplier-payments", require("./routes/supplierPayment.routes"));
+app.use("/api/transactions", require("./routes/transaction.routes"));
 app.use("/api/reports", require("./routes/report.routes"));
 
 app.use(errorMiddleware);

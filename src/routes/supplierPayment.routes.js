@@ -24,7 +24,7 @@ router.get(
 // Create: Procurement officer only
 router.post(
   "/",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement", "procurement_officer"),
   uploadSingle("receipt"),
   validate(createSupplierPaymentSchema),
   supplierPaymentController.create

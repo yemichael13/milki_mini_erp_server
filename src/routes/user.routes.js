@@ -9,10 +9,10 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// STRICT: only admin can manage users
-router.get("/", roleMiddleware("admin"), userController.list);
-router.get("/:id", roleMiddleware("admin"), userController.getById);
-router.post("/", roleMiddleware("admin"), validate(createUserSchema), userController.create);
-router.patch("/:id", roleMiddleware("admin"), validate(updateUserSchema), userController.update);
+// STRICT: only system admin can manage users
+router.get("/", roleMiddleware("system_admin"), userController.list);
+router.get("/:id", roleMiddleware("system_admin"), userController.getById);
+router.post("/", roleMiddleware("system_admin"), validate(createUserSchema), userController.create);
+router.patch("/:id", roleMiddleware("system_admin"), validate(updateUserSchema), userController.update);
 
 module.exports = router;

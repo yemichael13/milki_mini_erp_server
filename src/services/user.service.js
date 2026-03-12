@@ -1,5 +1,43 @@
 const bcrypt = require("bcrypt");
 const userRepository = require("../repositories/user.repository");
+const pool = require("../config/db");
+const { normalizeRole, toDbRole } = require("../utils/role");
+
+let cachedRoleEnum = null;
+
+const getRoleEnumValues = async () => {
+  if (cachedRoleEnum) return cachedRoleEnum;
+  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'role'");
+  const type = rows?.[0]?.Type || rows?.[0]?.type;
+  if (!type) return null;
+  const match = type.match(/^enum\((.*)\)$/i);
+  if (!match) return null;
+  cachedRoleEnum = match[1]
+    .split(",")
+    .map((v) => v.trim().replace(/^'(.*)'$/, "$1"));
+  return cachedRoleEnum;
+};
+
+const mapRoleForDb = async (role) => {
+  const desired = toDbRole(role);
+  const allowed = await getRoleEnumValues();
+  if (!allowed || allowed.length === 0) return desired;
+  if (allowed.includes(desired)) return desired;
+
+  const baseRole = normalizeRole(role);
+  if (["sales", "procurement", "production"].includes(desired)) {
+    const officerRole = `${desired}_officer`;
+    if (allowed.includes(officerRole)) return officerRole;
+  }
+
+  if (["system_admin", "admin"].includes(role)) {
+    if (allowed.includes("admin")) return "admin";
+    if (allowed.includes("system_admin")) return "system_admin";
+  }
+
+  if (allowed.includes(baseRole)) return baseRole;
+  return desired;
+};
 
 const list = async (filters) => {
   return userRepository.findAll(filters);
@@ -19,7 +57,7 @@ const ensureDefaultAdmin = async () => {
     email: DEFAULT_EMAIL,
     password_hash,
     full_name: DEFAULT_FULLNAME,
-    role: "admin",
+    role: await mapRoleForDb("system_admin"),
   });
   console.log(`Default admin created (${DEFAULT_EMAIL})`);
 };
@@ -46,7 +84,7 @@ const create = async (data) => {
     email: data.email,
     password_hash,
     full_name: data.full_name,
-    role: data.role,
+    role: await mapRoleForDb(data.role),
   });
   return userRepository.findById(id);
 };
@@ -54,6 +92,9 @@ const create = async (data) => {
 const update = async (id, data) => {
   await getById(id);
   const payload = { ...data };
+  if (payload.role) {
+    payload.role = await mapRoleForDb(payload.role);
+  }
   if (data.password) {
     payload.password_hash = await bcrypt.hash(data.password, 10);
     delete payload.password;

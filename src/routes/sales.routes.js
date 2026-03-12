@@ -18,26 +18,26 @@ router.use(authMiddleware);
 // Officer endpoints
 router.get(
   "/mine",
-  roleMiddleware("sales_officer"),
+  roleMiddleware("sales", "sales_officer"),
   validate(listSalesQuerySchema, "query"),
   salesController.listMine
 );
 router.post(
   "/",
-  roleMiddleware("sales_officer"),
+  roleMiddleware("sales", "sales_officer"),
   uploadSingle("receipt"),
   validate(createSalesTransactionSchema),
   salesController.create
 );
 router.post(
   "/:id/receipt",
-  roleMiddleware("sales_officer"),
+  roleMiddleware("sales", "sales_officer"),
   uploadSingle("receipt"),
   salesController.uploadReceipt
 );
 router.put(
   "/:id/resubmit",
-  roleMiddleware("sales_officer"),
+  roleMiddleware("sales", "sales_officer"),
   validate(resubmitSalesTransactionSchema),
   salesController.resubmit
 );

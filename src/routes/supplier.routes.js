@@ -9,26 +9,25 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// View suppliers: Procurement Officer and General Manager only
+// View suppliers: Procurement, Accountant, General Manager only
 router.get(
   "/",
-  roleMiddleware("procurement_officer", "general_manager"),
+  roleMiddleware("procurement", "general_manager", "accountant"),
   validate(supplierSearchSchema, "query"),
   supplierController.list
 );
 router.get(
   "/:id",
-  roleMiddleware("procurement_officer", "general_manager"),
+  roleMiddleware("procurement", "general_manager", "accountant"),
   supplierController.getById
 );
 
-// Create supplier: Procurement Officer only
+// Create supplier: Procurement only
 router.post(
   "/",
-  roleMiddleware("procurement_officer"),
+  roleMiddleware("procurement"),
   validate(createSupplierSchema),
   supplierController.create
 );
 
 module.exports = router;
-
