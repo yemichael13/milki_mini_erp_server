@@ -4,9 +4,10 @@ const fs = require("fs");
 
 const uploadRoot = process.env.UPLOAD_DIR || "uploads";
 const uploadDirName = path.join(uploadRoot, "receipts");
-const uploadDir = path.join(__dirname, "..", uploadDirName);
+// Store under server/uploads/receipts
+const uploadDir = path.join(__dirname, "..", "..", uploadDirName);
 const maxSize = Number(process.env.UPLOAD_MAX_SIZE) || 5 * 1024 * 1024; // 5MB
-const allowedMimes = (process.env.UPLOAD_ALLOWED_MIMES || "image/jpeg,image/png")
+const allowedMimes = (process.env.UPLOAD_ALLOWED_MIMES || "image/jpeg,image/png,application/pdf")
   .split(",")
   .map((m) => m.trim());
 
@@ -29,7 +30,7 @@ const fileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    const err = new Error("Invalid file type. Only JPG and PNG images are allowed.");
+    const err = new Error("Invalid file type. Only JPG, PNG, and PDF files are allowed.");
     err.statusCode = 400;
     cb(err, false);
   }

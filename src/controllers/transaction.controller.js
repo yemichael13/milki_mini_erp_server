@@ -5,7 +5,8 @@ const logger = require("../config/logger");
 const list = async (req, res, next) => {
   try {
     const filters = {};
-    if (req.query.status) filters.status = req.query.status;
+    const statusQuery = req.query.status;
+    if (statusQuery && statusQuery !== "all") filters.status = statusQuery;
     if (req.query.type) filters.type = req.query.type;
     if (req.query.source_department) filters.source_department = req.query.source_department;
     if (req.query.customer_id) filters.customer_id = Number(req.query.customer_id);
@@ -22,7 +23,10 @@ const list = async (req, res, next) => {
       filters.source_department = req.user.role;
       filters.created_by = req.user.id;
     }
-    // accountant and general_manager can see all
+    if (req.user.role === "general_manager" && !filters.status && statusQuery !== "all") {
+      filters.status = "accountant_approved";
+    }
+    // accountant can see all
 
     const list = await transactionService.list(filters);
     res.json(list);
@@ -42,6 +46,9 @@ const getById = async (req, res, next) => {
         return res.status(403).json({ message: "Forbidden" });
       }
     }
+    if (req.user.role === "general_manager" && tx.status !== "accountant_approved") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     res.json(tx);
   } catch (err) {
     next(err);
@@ -52,7 +59,7 @@ const create = async (req, res, next) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      data.receipt_image = path.posix.join("uploads", "receipts", req.file.filename);
+      data.receipt_image = path.posix.join("/uploads", "receipts", req.file.filename);
     }
 
     const tx = await transactionService.create(data, req.user);
@@ -76,7 +83,7 @@ const uploadReceipt = async (req, res, next) => {
       err.statusCode = 400;
       return next(err);
     }
-    const receiptPath = path.posix.join("uploads", "receipts", req.file.filename);
+    const receiptPath = path.posix.join("/uploads", "receipts", req.file.filename);
     const tx = await transactionService.uploadReceipt(
       Number(req.params.id),
       receiptPath,
@@ -105,12 +112,30 @@ const managerApprove = async (req, res, next) => {
   }
 };
 
+const accountantApprove = async (req, res, next) => {
+  try {
+    const tx = await transactionService.accountantApprove(
+      Number(req.params.id),
+      req.user.id
+    );
+    logger.info({
+      message: `Transaction accountant approved`,
+      transactionId: tx.id,
+      userId: req.user.id,
+    });
+    res.json(tx);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const reject = async (req, res, next) => {
   try {
     const tx = await transactionService.reject(
       Number(req.params.id),
       req.user.id,
-      req.body.rejection_reason
+      req.body.rejection_reason,
+      req.user.role
     );
     logger.info({
       message: `Transaction rejected`,
@@ -128,6 +153,7 @@ module.exports = {
   getById,
   create,
   uploadReceipt,
+  accountantApprove,
   managerApprove,
   reject,
 };

@@ -129,8 +129,8 @@ const uploadReceipt = async (id, receiptPath, user) => {
 
 const managerApprove = async (id, userId) => {
   const tx = await getById(id);
-  if (tx.status !== "pending") {
-    const err = new Error("Only pending transactions can be approved by manager");
+  if (tx.status !== "accountant_approved") {
+    const err = new Error("Only accountant-approved transactions can be approved by manager");
     err.statusCode = 400;
     throw err;
   }
@@ -138,11 +138,34 @@ const managerApprove = async (id, userId) => {
   return transactionRepository.findById(id);
 };
 
-const reject = async (id, userId, rejectionReason = null) => {
+const accountantApprove = async (id, userId) => {
   const tx = await getById(id);
-  if (tx.status === "manager_approved" || tx.status === "rejected") {
-    const err = new Error("Transaction cannot be rejected in current state");
+  if (tx.status !== "pending") {
+    const err = new Error("Only pending transactions can be approved by accountant");
     err.statusCode = 400;
+    throw err;
+  }
+  await transactionRepository.updateStatus(id, "accountant_approved", userId);
+  return transactionRepository.findById(id);
+};
+
+const reject = async (id, userId, rejectionReason = null, role = null) => {
+  const tx = await getById(id);
+  if (role === "accountant") {
+    if (tx.status !== "pending") {
+      const err = new Error("Only pending transactions can be rejected by accountant");
+      err.statusCode = 400;
+      throw err;
+    }
+  } else if (role === "general_manager") {
+    if (tx.status !== "accountant_approved") {
+      const err = new Error("Only accountant-approved transactions can be rejected by manager");
+      err.statusCode = 400;
+      throw err;
+    }
+  } else {
+    const err = new Error("Forbidden");
+    err.statusCode = 403;
     throw err;
   }
   await transactionRepository.updateStatus(id, "rejected", userId, rejectionReason);
@@ -171,6 +194,7 @@ module.exports = {
   getById,
   create,
   uploadReceipt,
+  accountantApprove,
   managerApprove,
   reject,
   getCustomerCredit,

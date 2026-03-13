@@ -22,7 +22,10 @@ const ensureUnifiedTransactionsTable = async () => {
     throw err;
   }
 
-  if (await tableExists("transactions")) return;
+  if (await tableExists("transactions")) {
+    await ensureAccountantStatusEnum();
+    return;
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transactions (
@@ -33,7 +36,7 @@ const ensureUnifiedTransactionsTable = async () => {
       payment_type ENUM('paid', 'credit', 'debt') NOT NULL,
       customer_id INT NULL,
       supplier_id INT NULL,
-      status ENUM('pending', 'manager_approved', 'rejected') NOT NULL DEFAULT 'pending',
+      status ENUM('pending', 'accountant_approved', 'manager_approved', 'rejected') NOT NULL DEFAULT 'pending',
       receipt_image VARCHAR(500),
       description TEXT,
       created_by INT NOT NULL,
@@ -54,6 +57,20 @@ const ensureUnifiedTransactionsTable = async () => {
       INDEX idx_supplier_id (supplier_id),
       INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
+  await ensureAccountantStatusEnum();
+};
+
+const ensureAccountantStatusEnum = async () => {
+  const [rows] = await pool.query("SHOW COLUMNS FROM transactions LIKE 'status'");
+  const type = rows?.[0]?.Type || rows?.[0]?.type;
+  if (!type || !type.startsWith("enum(")) return;
+  if (type.includes("accountant_approved")) return;
+  await pool.query(`
+    ALTER TABLE transactions
+    MODIFY status ENUM('pending', 'accountant_approved', 'manager_approved', 'rejected')
+    NOT NULL DEFAULT 'pending'
   `);
 };
 

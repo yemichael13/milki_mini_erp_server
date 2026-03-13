@@ -31,6 +31,13 @@ router.post(
   transactionController.uploadReceipt
 );
 
+// Accountant can approve transactions
+router.post(
+  "/:id/accountant-approve",
+  roleMiddleware("accountant"),
+  transactionController.accountantApprove
+);
+
 // Manager can approve transactions
 router.post(
   "/:id/approve",
@@ -41,7 +48,7 @@ router.post(
 // Manager can reject transactions
 router.post(
   "/:id/reject",
-  roleMiddleware("general_manager"),
+  roleMiddleware("general_manager", "accountant"),
   transactionController.reject
 );
 

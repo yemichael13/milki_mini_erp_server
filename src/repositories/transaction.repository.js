@@ -3,7 +3,7 @@ const pool = require("../config/db");
 const TYPES = Object.freeze(["sale", "procurement", "production"]);
 const SOURCE_DEPARTMENTS = Object.freeze(["sales", "procurement", "production"]);
 const PAYMENT_TYPES = Object.freeze(["paid", "credit", "debt"]);
-const STATUS = Object.freeze(["pending", "manager_approved", "rejected"]);
+const STATUS = Object.freeze(["pending", "accountant_approved", "manager_approved", "rejected"]);
 
 const findById = async (id) => {
   const [rows] = await pool.query(
