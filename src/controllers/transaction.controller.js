@@ -129,6 +129,25 @@ const accountantApprove = async (req, res, next) => {
   }
 };
 
+const recordPayment = async (req, res, next) => {
+  try {
+    const data = { ...req.body };
+    if (req.file) {
+      data.receipt_image = path.posix.join("/uploads", "receipts", req.file.filename);
+    }
+    const tx = await transactionService.recordPayment(data, req.user);
+    logger.info({
+      message: "Manager recorded payment",
+      transactionId: tx.id,
+      userId: req.user.id,
+      type: tx.type,
+    });
+    res.status(201).json(tx);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const reject = async (req, res, next) => {
   try {
     const tx = await transactionService.reject(
@@ -155,5 +174,6 @@ module.exports = {
   uploadReceipt,
   accountantApprove,
   managerApprove,
+  recordPayment,
   reject,
 };

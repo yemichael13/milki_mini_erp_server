@@ -138,6 +138,83 @@ const managerApprove = async (id, userId) => {
   return transactionRepository.findById(id);
 };
 
+const recordPayment = async (data, user) => {
+  if (user.role !== "general_manager") {
+    const err = new Error("Only general manager can record payments");
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const amount = Number(data.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const err = new Error("Amount must be a positive number");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const hasCustomer = !!data.customer_id;
+  const hasSupplier = !!data.supplier_id;
+  if (hasCustomer === hasSupplier) {
+    const err = new Error("Provide either customer_id or supplier_id");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  let type = null;
+  let sourceDepartment = null;
+  let customerId = null;
+  let supplierId = null;
+
+  if (hasCustomer) {
+    customerId = Number(data.customer_id);
+    if (!Number.isInteger(customerId) || customerId <= 0) {
+      const err = new Error("Customer is required");
+      err.statusCode = 400;
+      throw err;
+    }
+    const customer = await customerRepository.findById(customerId);
+    if (!customer) {
+      const err = new Error("Customer not found");
+      err.statusCode = 404;
+      throw err;
+    }
+    type = "sale";
+    sourceDepartment = "sales";
+  }
+
+  if (hasSupplier) {
+    supplierId = Number(data.supplier_id);
+    if (!Number.isInteger(supplierId) || supplierId <= 0) {
+      const err = new Error("Supplier is required");
+      err.statusCode = 400;
+      throw err;
+    }
+    const supplier = await supplierRepository.findById(supplierId);
+    if (!supplier) {
+      const err = new Error("Supplier not found");
+      err.statusCode = 404;
+      throw err;
+    }
+    type = "procurement";
+    sourceDepartment = "procurement";
+  }
+
+  const id = await transactionRepository.create({
+    type,
+    source_department: sourceDepartment,
+    amount,
+    payment_type: "paid",
+    customer_id: customerId,
+    supplier_id: supplierId,
+    receipt_image: data.receipt_image,
+    description: data.description,
+    created_by: user.id,
+  });
+
+  await transactionRepository.updateStatus(id, "manager_approved", user.id);
+  return transactionRepository.findById(id);
+};
+
 const accountantApprove = async (id, userId) => {
   const tx = await getById(id);
   if (tx.status !== "pending") {
@@ -196,6 +273,7 @@ module.exports = {
   uploadReceipt,
   accountantApprove,
   managerApprove,
+  recordPayment,
   reject,
   getCustomerCredit,
   getSupplierDebt,

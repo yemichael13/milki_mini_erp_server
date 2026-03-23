@@ -23,6 +23,14 @@ router.post(
   transactionController.create
 );
 
+// Manager can record payments (directly manager-approved)
+router.post(
+  "/record-payment",
+  roleMiddleware("general_manager"),
+  uploadSingle("receipt"),
+  transactionController.recordPayment
+);
+
 // Upload receipt for pending transactions
 router.post(
   "/:id/receipt",
