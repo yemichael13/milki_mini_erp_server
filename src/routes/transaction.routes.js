@@ -3,7 +3,7 @@ const transactionController = require("../controllers/transaction.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const roleMiddleware = require("../middlewares/role.middleware");
 const validate = require("../middlewares/validate.middleware");
-const { uploadSingle } = require("../middlewares/upload.middleware");
+const { uploadSingle, uploadArray } = require("../middlewares/upload.middleware");
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ router.get("/:id", transactionController.getById);
 router.post(
   "/",
   roleMiddleware("sales", "procurement", "production"),
-  uploadSingle("receipt"),
+  uploadArray("receipt"),
   transactionController.create
 );
 
@@ -27,7 +27,7 @@ router.post(
 router.post(
   "/record-payment",
   roleMiddleware("general_manager"),
-  uploadSingle("receipt"),
+  uploadArray("receipt"),
   transactionController.recordPayment
 );
 

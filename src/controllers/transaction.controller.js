@@ -2,6 +2,15 @@ const path = require("path");
 const transactionService = require("../services/transaction.service");
 const logger = require("../config/logger");
 
+const buildReceiptValue = (files = []) => {
+  if (!Array.isArray(files) || files.length === 0) return null;
+  const paths = files.map((file) =>
+    path.posix.join("/uploads", "receipts", file.filename)
+  );
+  if (paths.length === 1) return paths[0];
+  return JSON.stringify(paths);
+};
+
 const list = async (req, res, next) => {
   try {
     const filters = {};
@@ -58,8 +67,9 @@ const getById = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const data = { ...req.body };
-    if (req.file) {
-      data.receipt_image = path.posix.join("/uploads", "receipts", req.file.filename);
+    const receiptValue = buildReceiptValue(req.files || (req.file ? [req.file] : []));
+    if (receiptValue) {
+      data.receipt_image = receiptValue;
     }
 
     const tx = await transactionService.create(data, req.user);
@@ -132,8 +142,9 @@ const accountantApprove = async (req, res, next) => {
 const recordPayment = async (req, res, next) => {
   try {
     const data = { ...req.body };
-    if (req.file) {
-      data.receipt_image = path.posix.join("/uploads", "receipts", req.file.filename);
+    const receiptValue = buildReceiptValue(req.files || (req.file ? [req.file] : []));
+    if (receiptValue) {
+      data.receipt_image = receiptValue;
     }
     const tx = await transactionService.recordPayment(data, req.user);
     logger.info({
