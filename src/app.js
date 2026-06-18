@@ -26,6 +26,7 @@ app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/customers", require("./routes/customer.routes"));
 app.use("/api/suppliers", require("./routes/supplier.routes"));
 app.use("/api/transactions", require("./routes/transaction.routes"));
+app.use("/api", require("./routes/inventory.routes"));
 app.use("/api/reports", require("./routes/report.routes"));
 
 app.use(errorMiddleware);

@@ -5,14 +5,18 @@ const schemaService = require("./services/schema.service");
 
 const PORT = process.env.PORT || 5000;
 
-// make sure default admin account exists before accepting connections
-userService.ensureDefaultAdmin().catch((err) => {
-  console.error("Failed to ensure default admin:", err);
-});
-schemaService.ensureUnifiedTransactionsTable().catch((err) => {
-  console.error("Failed to ensure unified transactions table:", err);
-});
+const startServer = async () => {
+  try {
+    await schemaService.ensureUnifiedTransactionsTable();
+    await schemaService.ensureProductionInventoryTables();
+    await userService.ensureDefaultAdmin();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Server bootstrap failed:", err);
+    process.exitCode = 1;
+  }
+};
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+startServer();

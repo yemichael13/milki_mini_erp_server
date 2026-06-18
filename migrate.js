@@ -13,12 +13,20 @@ async function runMigration() {
   });
 
   try {
-    const migrationPath = path.join(__dirname, "migrations", "003_unified_schema.sql");
-    const migrationSQL = fs.readFileSync(migrationPath, "utf8");
+    const migrations = [
+      "003_unified_schema.sql",
+      "004_production_inventory.sql",
+    ];
 
-    console.log("Running migration...");
-    await connection.query(migrationSQL);
-    console.log("Migration completed successfully!");
+    for (const migration of migrations) {
+      const migrationPath = path.join(__dirname, "migrations", migration);
+      const migrationSQL = fs.readFileSync(migrationPath, "utf8");
+
+      console.log(`Running migration ${migration}...`);
+      await connection.query(migrationSQL);
+    }
+
+    console.log("Migrations completed successfully!");
   } catch (error) {
     console.error("Migration failed:", error);
   } finally {

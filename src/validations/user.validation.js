@@ -5,6 +5,7 @@ const updateUserSchema = Joi.object({
   role: Joi.string().valid(
     "system_admin",
     "admin",
+    "manager",
     "general_manager",
     "accountant",
     "sales",
@@ -12,7 +13,9 @@ const updateUserSchema = Joi.object({
     "production",
     "production_officer",
     "procurement_officer",
-    "sales_officer"
+    "sales_officer",
+    "production_recorder",
+    "production_approver"
   ),
   is_active: Joi.boolean(),
   password: Joi.string().min(6),
@@ -26,6 +29,7 @@ const createUserSchema = Joi.object({
     .valid(
       "system_admin",
       "admin",
+      "manager",
       "general_manager",
       "accountant",
       "sales",
@@ -33,7 +37,9 @@ const createUserSchema = Joi.object({
       "production",
       "production_officer",
       "procurement_officer",
-      "sales_officer"
+      "sales_officer",
+      "production_recorder",
+      "production_approver"
     )
     .required(),
 });

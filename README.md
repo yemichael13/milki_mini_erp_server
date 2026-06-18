@@ -1,238 +1,194 @@
----
+# Mini ERP Server (Node.js + Express + MySQL)
 
-# 🧾 README.md
+Backend API for the Mini ERP system. This service handles authentication, role-based authorization, transaction workflows (sales/procurement/production), receipt uploads, credit/debt calculations, reporting, and admin operations.
 
-# Mini ERP – Financial Workflow & Customer Credit Management Backend
+## System Overview
 
----
+The system is built around a **unified transactions** table and a strict approval workflow.
 
-# 🏗 Project Overview
+Core entities:
+- Users
+- Customers
+- Suppliers
+- Transactions (sales/procurement/production)
 
-This project is a **production-ready backend system** for a Mini ERP focused strictly on:
+Core rules:
+- **Only manager-approved transactions affect credit/debt calculations**
+- Transactions follow a structured approval path (pending ? accountant_approved ? manager_approved/rejected)
+- Receipts are stored on disk; the database stores file paths only
+- Role permissions are enforced at the API layer
 
-* Financial workflow accountability
-* Customer credit tracking
-* Hierarchical approval system
-* Transaction transparency
-* Audit traceability
+## Tech Stack
 
-The system is NOT a full ERP.
-It only manages financial aspects of:
+- Node.js + Express
+- MySQL (mysql2/promise)
+- JWT auth
+- bcrypt password hashing
+- Joi validation
+- Multer for uploads
+- Winston logging
+- Helmet + CORS
 
-* Sales
-* Production
-* Procurement
+## Architecture
 
-The system calculates and maintains **dynamic customer credit balances** based on approved transactions and recorded payments.
-
----
-
-# 🎯 Core System Goals
-
-1. Ensure financial transparency across workflows.
-2. Enforce hierarchical approval (Accountant → Manager).
-3. Automate customer credit calculation.
-4. Maintain strict role-based access control.
-5. Store receipt evidence for every transaction.
-6. Provide production-level security and scalability.
-
----
-
-# 🧱 Technology Stack
-
-Backend Framework: Node.js + Express
-Database: MySQL (mysql2/promise)
-Authentication: JWT
-Password Security: bcrypt
-Validation: Joi
-File Upload: Multer
-Security: Helmet, CORS
-Logging: Winston
-Environment Config: dotenv
-
----
-
-# 🏛 Architecture Pattern
-
-This backend follows a **Layered Clean Architecture**:
-
-Controller → Service → Repository → Database
-
-Separation of concerns:
-
-* Controllers handle HTTP layer.
-* Services handle business logic.
-* Repositories handle database queries.
-* Middleware handles cross-cutting concerns.
-* Utils contain reusable logic.
-
-This design ensures:
-
-* Maintainability
-* Testability
-* Scalability
-* Production readiness
-
----
-
-# 📂 Folder Structure
+Layered approach:
 
 ```
-src/
- ├── config/         # Configuration files (DB, logger, env)
- ├── controllers/    # Request handlers
- ├── services/       # Business logic
- ├── repositories/   # Database queries
- ├── routes/         # Express routes
- ├── middlewares/    # Auth, role, error, upload
- ├── validations/    # Joi schemas
- ├── utils/          # Shared utilities (credit calculator)
- ├── app.js          # Express app setup
- └── server.js       # Entry point
-
-uploads/             # Receipt storage
-.env                 # Environment variables
+Routes ? Controllers ? Services ? Repositories ? Database
 ```
 
----
+- Controllers: HTTP boundary + validation + role enforcement
+- Services: business rules and workflow checks
+- Repositories: SQL queries and data access
+- Middleware: auth, roles, errors, upload handling
 
-# 🔐 Authentication & Authorization
+## Startup Behavior
 
-The system uses JWT-based authentication.
+On boot, the server runs:
 
-Flow:
+1. **Default admin creation**
+   - If no admin exists, a default admin user is inserted using env defaults
+2. **Schema check**
+   - Ensures the `transactions` table exists
+   - Ensures `status` enum includes `accountant_approved`
 
-1. User logs in.
-2. Server validates credentials.
-3. Server issues signed JWT.
-4. Client sends JWT in Authorization header.
-5. Middleware verifies token.
-6. Role middleware restricts access.
+## Roles and Permissions
 
-Supported roles:
+Roles recognized by the API:
 
-* sales
-* production
-* procurement
-* accountant
-* manager
-* admin
+- `system_admin` (mapped to `admin` in DB)
+- `general_manager`
+- `accountant`
+- `sales`
+- `procurement`
+- `production`
 
-Role-based restrictions are strictly enforced.
+Role mapping behavior:
+- DB role `admin` is treated as `system_admin` in the app
+- Roles ending with `_officer` are normalized to base role
 
----
+High-level permissions:
 
-# 🧮 Core Business Logic
+- **system_admin**: manage users, settings, logs, backups only
+- **general_manager**: view all transactions, approve/reject, view customers/suppliers, view credit/debt, record payments, view reports
+- **accountant**: view all transactions, approve/reject pending, view customers/suppliers, view credit/debt, view reports
+- **sales**: create sales transactions, add customers, view own sales transactions
+- **procurement**: create procurement transactions, add suppliers, view own procurement transactions
+- **production**: create production transactions, view own production transactions
 
-## Customer Credit Calculation
+System admin is **explicitly forbidden** from financial data endpoints.
 
-Customer credit is calculated dynamically using:
+## Transaction Workflow
 
-Remaining Credit =
-SUM(Manager Approved Transactions)
-− SUM(All Payments)
+Lifecycle:
+
+1. Officer creates transaction ? `pending`
+2. Accountant approves ? `accountant_approved`
+3. Manager approves ? `manager_approved`
+4. Manager rejects ? `rejected`
+5. Accountant can reject **pending** transactions (goes to `rejected`)
 
 Important:
+- Only `manager_approved` transactions affect credit/debt
+- `pending`, `accountant_approved`, and `rejected` do **not** affect balances
 
-* Only manager-approved transactions affect credit.
-* Pending or rejected transactions do NOT affect credit.
-* Payments reduce outstanding balance immediately.
+## Manager Record Payment
 
-Credit calculation logic lives in:
+Managers can directly record a payment against:
 
-`utils/creditCalculator.js`
+- Customer credit (sales)
+- Supplier debt (procurement)
 
----
+These records are created as **paid** transactions and immediately marked **manager_approved**, so they affect balances without additional approvals.
 
-# 🔁 Workflow Logic
+## Credit and Debt Calculation
 
-Each transaction belongs to a workflow:
-
-* sales
-* production
-* procurement
-
-Transaction lifecycle:
-
-1. Created by officer.
-2. Receipt uploaded.
-3. Status = pending.
-4. Accountant approves → status = accountant_approved.
-5. Manager approves → status = manager_approved.
-6. Transaction becomes final.
-7. Credit updates automatically.
-
-Rejected transactions never affect credit.
-
----
-
-# 🗄 Database Schema
-
-Core tables:
-
-users
-customers
-transactions
-payments
-
-Transactions are unified in one table using a workflow ENUM.
-
-Status ENUM:
-
-* pending
-* accountant_approved
-* manager_approved
-* rejected
-
-Indexes should be added on:
-
-* customer_id
-* status
-* workflow
-* created_at
-
-Foreign key constraints are enforced.
-
----
-
-# 📡 API Structure
-
-## Initial Data Seeding
-
-When you initialize a fresh database there is no user to authenticate with.  A simple helper script is provided to create the first administrator account:
-
-```bash
-cd server
-node src/scripts/seedAdmin.js
-```
-
-The script will insert an admin user only if one with the same email does not already exist.  It uses the credentials below:
-
-* **Email:** admin@milki.com
-* **Password:** Milkiadmin@2026
-
-You can run the script again later; it will detect an existing account and skip creation.
-
-
-
-Base URL:
+Customer credit:
 
 ```
-/api
+remaining_credit = SUM(credit) - SUM(paid)
+WHERE status = 'manager_approved' AND type = 'sale'
 ```
 
-Modules:
+Supplier debt:
 
 ```
-/auth
-/users
-/customers
-/sales
-/production
-/procurement
-/payments
-/reports
+remaining_debt = SUM(debt) - SUM(paid)
+WHERE status = 'manager_approved' AND type = 'procurement'
 ```
+
+If no credit/debt exists, balance returns `0` (no negative balances).
+
+## Receipts and Uploads
+
+- Files are stored in `server/uploads/receipts`
+- The database stores **only the file path**
+- Files are served via:
+
+```
+GET /uploads/receipts/<filename>
+```
+
+### Multiple files
+
+Transactions can include multiple receipts:
+
+- Upload field name: `receipt`
+- Multiple files are stored as a JSON array string in `receipt_image`
+- Single file is stored as a plain string for backward compatibility
+
+Allowed file types: `jpg`, `jpeg`, `png`, `pdf`
+
+## API Endpoints
+
+Base URL: `/api`
+
+### Auth
+- `POST /auth/login`
+- `GET /auth/me`
+
+### Users (system_admin only)
+- `GET /users`
+- `GET /users/:id`
+- `POST /users`
+- `PATCH /users/:id`
+
+### Admin (system_admin only)
+- `GET /admin/settings`
+- `POST /admin/backups`
+- `GET /admin/logs`
+
+### Customers
+- `GET /customers` (sales, accountant, general_manager)
+  - Query: `search`
+- `GET /customers/:id`
+- `POST /customers` (sales only)
+
+### Suppliers
+- `GET /suppliers` (procurement, accountant, general_manager)
+  - Query: `search`
+- `GET /suppliers/:id`
+- `POST /suppliers` (procurement only)
+
+### Transactions
+- `GET /transactions`
+  - Query: `status`, `type`, `source_department`, `customer_id`, `supplier_id`, `from_date`, `to_date`
+  - Manager default filter: returns `accountant_approved` unless `status=all`
+- `GET /transactions/:id`
+- `POST /transactions` (sales/procurement/production)
+  - Multipart form data (field `receipt`, supports multiple files)
+- `POST /transactions/:id/receipt` (officers only; single file)
+- `POST /transactions/:id/accountant-approve` (accountant)
+- `POST /transactions/:id/approve` (general_manager)
+- `POST /transactions/:id/reject` (general_manager, accountant)
+- `POST /transactions/record-payment` (general_manager)
+  - Use `customer_id` or `supplier_id` + `amount` (+ optional `description`, `receipt` files)
+
+### Reports (accountant, general_manager)
+- `GET /reports/customer-credit`
+- `GET /reports/supplier-debt`
+- `GET /reports/summary`
+  - Query: `from_date`, `to_date`, `customer_id`, `supplier_id`, `format=json|csv`
 
 All protected routes require:
 
@@ -240,202 +196,80 @@ All protected routes require:
 Authorization: Bearer <token>
 ```
 
----
+## Data Model (Unified Schema)
 
-# 📊 Reporting Capabilities
+From `migrations/003_unified_schema.sql`:
 
-Reports supported:
+### users
+- email, password_hash, full_name
+- role: `admin | general_manager | accountant | sales | procurement | production`
 
-* Customer credit report
-* Workflow financial summary
-* Date range filtering
-* Export-ready data (CSV/PDF ready format)
+### customers / suppliers
+- name, email, phone, address
 
-Reports must aggregate using SQL SUM and GROUP BY.
+### transactions
+- type: `sale | procurement | production`
+- source_department: `sales | procurement | production`
+- payment_type: `paid | credit | debt`
+- status: `pending | accountant_approved | manager_approved | rejected`
+- customer_id or supplier_id (nullable)
+- receipt_image (string path or JSON array string)
+- description, created_by, manager_approved_by, rejected_by, rejection_reason
 
----
+Note: The `accountant_approved` status is added at runtime if missing.
 
-# 📎 File Upload Handling
+## Environment Variables
 
-Receipt files are uploaded using Multer.
-
-Rules:
-
-* Only image/pdf files allowed.
-* File size limit enforced.
-* Stored in /uploads directory.
-* File path saved in database.
-
----
-
-# 🛡 Security Measures
-
-This system enforces:
-
-* Password hashing with bcrypt
-* JWT expiration control
-* Role-based middleware
-* Input validation (Joi)
-* SQL injection prevention (parameterized queries)
-* Helmet security headers
-* CORS configuration
-* Environment variable isolation
-* Centralized error handling
-* Logging with Winston
-
----
-
-# ⚙ Environment Variables
-
-Example `.env` file:
+Server config (see `.env.example`):
 
 ```
 PORT=5000
-
 DB_HOST=localhost
 DB_USER=root
-DB_PASSWORD=yourpassword
+DB_PASSWORD=...
 DB_NAME=mini_erp
-
-JWT_SECRET=super_secure_secret
+JWT_SECRET=...
 JWT_EXPIRES=1d
+CLIENT_URL=http://localhost:5173
+LOG_LEVEL=info
+LOG_DIR=logs
+UPLOAD_MAX_SIZE=5242880
+UPLOAD_ALLOWED_MIMES=image/jpeg,image/png,application/pdf
 ```
 
-Never commit `.env` to version control.
+## Running the Server
 
----
-
-# 🚀 Development Setup
-
-1. Clone repository
-2. Install dependencies:
+Install dependencies:
 
 ```
 npm install
 ```
 
-3. Create `.env`
-4. Create MySQL database
-5. Run migrations (manual SQL for now)
-6. Start server:
+Run migration (drops and recreates tables):
+
+```
+node migrate.js
+```
+
+Start the server:
 
 ```
 npm run dev
 ```
 
----
+## Logging and Errors
 
-# 🧪 Testing
+- `morgan` logs HTTP requests
+- `winston` logs critical events
+- Central error middleware formats responses and status codes
 
-Run the test suite (requires MySQL with schema applied and `.env` configured):
+## Testing
 
-```bash
-npm test
-```
+Tests are available in `server/test/` (Jest + Supertest). Some tests may expect legacy schema; verify before using in CI.
 
-Before production deployment, the system must validate:
+## Notes for Developers
 
-* Authentication flow
-* Role restrictions
-* Approval workflow correctness
-* Credit calculation accuracy
-* Payment updates
-* SQL aggregation accuracy
-* File upload validation
-
-The suite uses **Jest** and **Supertest** and covers all of the above via integration tests in `test/`.
-
----
-
-# 📈 Production Deployment Guidelines
-
-* Use managed MySQL service.
-* Use HTTPS (SSL certificate).
-* Use reverse proxy (NGINX).
-* Enable database backups.
-* Enable logging monitoring.
-* Use PM2 or Docker for process management.
-* Set proper environment variables.
-
----
-
-# 🧠 Engineering Principles Applied
-
-* Clean Architecture
-* Single Responsibility Principle
-* Separation of Concerns
-* Secure by Default
-* Immutable transaction history
-* Strict role-based control
-* Database normalization
-* Scalable design
-
----
-
-# 🧩 Design Decisions
-
-Why unified transactions table?
-
-* Avoid duplicated schema
-* Easier reporting
-* Easier aggregation
-* Better scalability
-
-Why layered architecture?
-
-* Easier debugging
-* Easier expansion
-* Cleaner AI code generation
-* Better maintainability
-
----
-
-# 🚫 System Limitations (Current Version)
-
-* No inventory module
-* No payroll module
-* No multi-branch logic
-* No automated notifications
-* No multi-currency
-
----
-
-# 🔮 Future Enhancements
-
-* Credit limit enforcement
-* Dashboard analytics
-* Multi-branch support
-* Audit trail UI
-* Advanced financial analytics
-* Microservice refactor (if scaled)
-
----
-
-# 🤖 AI Agent Instructions (Important Section)
-
-If you are a code agent extending this system:
-
-1. Maintain layered architecture.
-2. Never place business logic inside controllers.
-3. Always validate input using Joi.
-4. Use parameterized queries only.
-5. Never bypass role middleware.
-6. Keep approval flow intact.
-7. Do not allow direct modification of approved transactions.
-8. Ensure credit calculation integrity.
-9. Log critical financial actions.
-10. Maintain security best practices.
-
-Any new module must follow existing folder conventions.
-
----
-
-# 📌 Project Philosophy
-
-This is not a demo project.
-
-This backend is designed to simulate a real financial accountability system that could operate in a small-to-medium enterprise environment.
-
-Security, transparency, and data integrity are the highest priorities.
-
----
+- Keep controllers thin; business logic belongs in services
+- Use repositories for all SQL
+- Do not bypass role middleware
+- Do not change transaction status rules without updating credit/debt logic
