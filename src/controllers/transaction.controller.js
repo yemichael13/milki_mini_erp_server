@@ -55,9 +55,7 @@ const getById = async (req, res, next) => {
         return res.status(403).json({ message: "Forbidden" });
       }
     }
-    if (req.user.role === "general_manager" && tx.status !== "accountant_approved") {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    // General manager can inspect any transaction detail just like the list view.
     res.json(tx);
   } catch (err) {
     next(err);

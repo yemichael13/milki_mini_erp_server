@@ -14,5 +14,6 @@ router.get("/", roleMiddleware("system_admin"), userController.list);
 router.get("/:id", roleMiddleware("system_admin"), userController.getById);
 router.post("/", roleMiddleware("system_admin"), validate(createUserSchema), userController.create);
 router.patch("/:id", roleMiddleware("system_admin"), validate(updateUserSchema), userController.update);
+router.delete("/:id", roleMiddleware("system_admin"), userController.remove);
 
 module.exports = router;

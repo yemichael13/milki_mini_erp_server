@@ -42,4 +42,14 @@ const update = async (req, res, next) => {
   }
 };
 
-module.exports = { list, getById, create, update };
+const remove = async (req, res, next) => {
+  try {
+    const user = await userService.remove(Number(req.params.id), req.user.id);
+    logger.info({ message: "User deleted", userId: req.params.id, by: req.user.id });
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { list, getById, create, update, remove };

@@ -59,10 +59,21 @@ const update = async (id, data) => {
   return result.affectedRows;
 };
 
+const countActiveByRoles = async (roles) => {
+  const roleList = Array.isArray(roles) ? roles : [roles];
+  const placeholders = roleList.map(() => "?").join(", ");
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM users WHERE role IN (${placeholders}) AND is_active = 1`,
+    roleList
+  );
+  return Number(rows[0]?.count || 0);
+};
+
 module.exports = {
   findByEmail,
   findById,
   create,
   findAll,
   update,
+  countActiveByRoles,
 };

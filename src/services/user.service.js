@@ -103,4 +103,30 @@ const update = async (id, data) => {
   return userRepository.findById(id);
 };
 
-module.exports = { list, getById, create, update, ensureDefaultAdmin };
+const remove = async (id, currentUserId) => {
+  const user = await getById(id);
+
+  if (Number(id) === Number(currentUserId)) {
+    const err = new Error("You cannot delete your own account");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (user.role === "system_admin") {
+    const activeAdmins = await userRepository.countActiveByRoles(["admin", "system_admin"]);
+    if (activeAdmins <= 1 && user.is_active) {
+      const err = new Error("At least one active system admin must remain");
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  if (!user.is_active) {
+    return user;
+  }
+
+  await userRepository.update(id, { is_active: false });
+  return userRepository.findById(id);
+};
+
+module.exports = { list, getById, create, update, remove, ensureDefaultAdmin };

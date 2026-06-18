@@ -5,17 +5,29 @@ const SOURCE_DEPARTMENTS = Object.freeze(["sales", "procurement", "production"])
 const PAYMENT_TYPES = Object.freeze(["paid", "credit", "debt"]);
 const STATUS = Object.freeze(["pending", "accountant_approved", "manager_approved", "rejected"]);
 
+const buildSelectClause = () => `
+  SELECT t.*,
+         t.receipt_image as receipt_path,
+         c.name as customer_name,
+         s.name as supplier_name,
+         COALESCE(created_by_user.full_name, created_by_user.email) as created_by_name,
+         created_by_user.email as created_by_email,
+         created_by_user.role as created_by_role,
+         manager_user.full_name as manager_approved_by_name,
+         manager_user.email as manager_approved_by_email,
+         rejected_user.full_name as rejected_by_name,
+         rejected_user.email as rejected_by_email
+  FROM transactions t
+  LEFT JOIN customers c ON t.customer_id = c.id
+  LEFT JOIN suppliers s ON t.supplier_id = s.id
+  LEFT JOIN users created_by_user ON t.created_by = created_by_user.id
+  LEFT JOIN users manager_user ON t.manager_approved_by = manager_user.id
+  LEFT JOIN users rejected_user ON t.rejected_by = rejected_user.id
+`;
+
 const findById = async (id) => {
   const [rows] = await pool.query(
-    `SELECT t.*,
-            t.receipt_image as receipt_path,
-            c.name as customer_name,
-            s.name as supplier_name,
-            u.full_name as created_by_name
-     FROM transactions t
-     LEFT JOIN customers c ON t.customer_id = c.id
-     LEFT JOIN suppliers s ON t.supplier_id = s.id
-     LEFT JOIN users u ON t.created_by = u.id
+    `${buildSelectClause()}
      WHERE t.id = ?`,
     [id]
   );
@@ -42,16 +54,7 @@ const create = async (data) => {
 };
 
 const findAll = async (filters = {}) => {
-  let sql = `SELECT t.*,
-                    t.receipt_image as receipt_path,
-                    c.name as customer_name,
-                    s.name as supplier_name,
-                    u.full_name as created_by_name
-             FROM transactions t
-             LEFT JOIN customers c ON t.customer_id = c.id
-             LEFT JOIN suppliers s ON t.supplier_id = s.id
-             LEFT JOIN users u ON t.created_by = u.id
-             WHERE 1=1`;
+  let sql = `${buildSelectClause()} WHERE 1=1`;
   const params = [];
 
   if (filters.type) {
@@ -154,16 +157,7 @@ const getSupplierDebt = async (supplierId) => {
 };
 
 const getDepartmentTransactions = async (sourceDepartment, userRole = null) => {
-  let sql = `SELECT t.*,
-                    t.receipt_image as receipt_path,
-                    c.name as customer_name,
-                    s.name as supplier_name,
-                    u.full_name as created_by_name
-             FROM transactions t
-             LEFT JOIN customers c ON t.customer_id = c.id
-             LEFT JOIN suppliers s ON t.supplier_id = s.id
-             LEFT JOIN users u ON t.created_by = u.id
-             WHERE t.source_department = ?`;
+  let sql = `${buildSelectClause()} WHERE t.source_department = ?`;
 
   const params = [sourceDepartment];
 
