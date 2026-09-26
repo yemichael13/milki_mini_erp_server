@@ -2,7 +2,7 @@ const pool = require("../config/db");
 
 const findByEmail = async (email) => {
   const [rows] = await pool.query(
-    "SELECT id, email, password_hash, full_name, role, is_active FROM users WHERE email = ?",
+    "SELECT id, email, password_hash, full_name, role, is_active, email_verified_at, email_verification_token_hash, email_verification_expires_at, password_reset_token_hash, password_reset_expires_at, failed_login_attempts, locked_until FROM users WHERE email = ?",
     [email]
   );
   return rows[0] || null;
@@ -10,7 +10,7 @@ const findByEmail = async (email) => {
 
 const findById = async (id) => {
   const [rows] = await pool.query(
-    "SELECT id, email, full_name, role, is_active, created_at FROM users WHERE id = ?",
+    "SELECT id, email, full_name, role, is_active, email_verified_at, created_at FROM users WHERE id = ?",
     [id]
   );
   return rows[0] || null;
@@ -18,14 +18,14 @@ const findById = async (id) => {
 
 const create = async (data) => {
   const [result] = await pool.query(
-    "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
-    [data.email, data.password_hash, data.full_name, data.role]
+    "INSERT INTO users (email, password_hash, full_name, role, email_verified_at, email_verification_token_hash, email_verification_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [data.email, data.password_hash, data.full_name, data.role, data.email_verified_at || null, data.email_verification_token_hash || null, data.email_verification_expires_at || null]
   );
   return result.insertId;
 };
 
 const findAll = async (filters = {}) => {
-  let sql = "SELECT id, email, full_name, role, is_active, created_at FROM users WHERE 1=1";
+  let sql = "SELECT id, email, full_name, role, is_active, email_verified_at, created_at FROM users WHERE 1=1";
   const params = [];
   if (filters.role) {
     sql += " AND role = ?";
@@ -41,7 +41,7 @@ const findAll = async (filters = {}) => {
 };
 
 const update = async (id, data) => {
-  const allowed = ["full_name", "role", "is_active", "password_hash"];
+  const allowed = ["full_name", "role", "is_active", "password_hash", "email_verified_at", "email_verification_token_hash", "email_verification_expires_at", "password_reset_token_hash", "password_reset_expires_at", "failed_login_attempts", "locked_until"];
   const updates = [];
   const values = [];
   for (const key of allowed) {

@@ -24,7 +24,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const user = await userService.create(req.body);
+    const user = await userService.create({ ...req.body, createdBy: req.user.id });
     logger.info({ message: "User created", userId: user.id, by: req.user.id });
     res.status(201).json(user);
   } catch (err) {

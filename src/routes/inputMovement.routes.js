@@ -1,0 +1,14 @@
+const express = require("express");
+const auth = require("../middlewares/auth.middleware");
+const role = require("../middlewares/role.middleware");
+const validate = require("../middlewares/validate.middleware");
+const controller = require("../controllers/inputMovement.controller");
+const { createInputMovementSchema, rejectSchema } = require("../validations/inventory.validation");
+const router = express.Router();
+router.use(auth);
+router.get("/", role("production_recorder", "production_approver", "general_manager", "accountant", "system_admin"), controller.list);
+router.post("/", role("production_recorder"), validate(createInputMovementSchema), controller.create);
+router.post("/:id/approve", role("production_approver"), controller.approve);
+router.post("/:id/manager-approve", role("general_manager"), controller.managerApprove);
+router.post("/:id/reject", role("production_approver", "general_manager"), validate(rejectSchema), controller.reject);
+module.exports = router;

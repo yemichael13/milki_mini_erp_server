@@ -13,5 +13,6 @@ router.use(roleMiddleware("accountant", "general_manager"));
 router.get("/customer-credit", validate(reportQuerySchema, "query"), reportController.customerCredit);
 router.get("/supplier-debt", validate(reportQuerySchema, "query"), reportController.supplierDebt);
 router.get("/summary", validate(reportQuerySchema, "query"), reportController.summary);
+router.get("/transactions", validate(reportQuerySchema, "query"), reportController.transactionHistory);
 
 module.exports = router;

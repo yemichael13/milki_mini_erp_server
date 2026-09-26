@@ -2,6 +2,9 @@ const bcrypt = require("bcrypt");
 const userRepository = require("../repositories/user.repository");
 const pool = require("../config/db");
 const { normalizeRole, toDbRole } = require("../utils/role");
+const { createToken, hashToken } = require("../utils/authTokens");
+const emailService = require("./email.service");
+const { audit } = require("./security.service");
 
 let cachedRoleEnum = null;
 
@@ -53,11 +56,12 @@ const ensureDefaultAdmin = async () => {
   if (existing) return;
 
   const password_hash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
-  await userRepository.create({
+  const id = await userRepository.create({
     email: DEFAULT_EMAIL,
     password_hash,
     full_name: DEFAULT_FULLNAME,
     role: await mapRoleForDb("system_admin"),
+    email_verified_at: new Date(),
   });
   console.log(`Default admin created (${DEFAULT_EMAIL})`);
 };
@@ -79,13 +83,20 @@ const create = async (data) => {
     err.statusCode = 409;
     throw err;
   }
-  const password_hash = await bcrypt.hash(data.password, 10);
+  const password_hash = await bcrypt.hash(data.password, 12);
+  const verificationToken = createToken();
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const id = await userRepository.create({
     email: data.email,
     password_hash,
     full_name: data.full_name,
     role: await mapRoleForDb(data.role),
+    email_verification_token_hash: hashToken(verificationToken),
+    email_verification_expires_at: verificationExpires,
   });
+  const user = await userRepository.findByEmail(data.email);
+  await emailService.sendVerificationEmail(user, verificationToken);
+  await audit("USER_CREATED", data.createdBy || null, { createdUserId: id });
   return userRepository.findById(id);
 };
 
@@ -96,7 +107,7 @@ const update = async (id, data) => {
     payload.role = await mapRoleForDb(payload.role);
   }
   if (data.password) {
-    payload.password_hash = await bcrypt.hash(data.password, 10);
+    payload.password_hash = await bcrypt.hash(data.password, 12);
     delete payload.password;
   }
   await userRepository.update(id, payload);

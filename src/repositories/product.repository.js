@@ -28,6 +28,7 @@ const listAll = async (filters = {}, db = pool) => {
     sql += " AND is_active = ?";
     params.push(filters.is_active ? 1 : 0);
   }
+  if (filters.inventory_type) { sql += " AND inventory_type = ?"; params.push(filters.inventory_type); }
 
   sql += " ORDER BY product_type ASC, package_size_kg ASC";
   const [rows] = await db.query(sql, params);

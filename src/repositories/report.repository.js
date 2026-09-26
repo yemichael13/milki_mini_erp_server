@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const transactionRepository = require("./transaction.repository");
 
 const customerCreditReport = async (fromDate = null, toDate = null) => {
   // manager-approved sales transactions, split by payment type
@@ -91,6 +92,7 @@ const supplierDebtReport = async (fromDate = null, toDate = null) => {
 };
 
 module.exports = {
+  transactionHistoryReport: async (filters = {}) => transactionRepository.findAll(filters),
   customerCreditReport,
   supplierDebtReport,
   summary: async (fromDate = null, toDate = null) => {

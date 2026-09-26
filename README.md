@@ -17,6 +17,8 @@ Backend API for the Milki ERP system. This service handles authentication, role-
 - Express 5
 - MySQL with `mysql2/promise`
 - JWT authentication
+- Short-lived access JWTs with rotated HttpOnly refresh sessions
+- Admin-only user creation with email verification and password recovery
 - bcrypt
 - Joi validation
 - Multer uploads
@@ -185,6 +187,8 @@ Base path: `/api`
 
 - `POST /auth/login`
 - `GET /auth/me`
+- `POST /auth/refresh`, `POST /auth/logout`
+- `GET /auth/verify-email`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/change-password`
 
 ### Users
 

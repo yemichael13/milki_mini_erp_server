@@ -13,6 +13,7 @@ const readFilters = (req) => ({
   from_date: req.query.from_date,
   to_date: req.query.to_date,
   is_active: req.query.is_active,
+  inventory_type: req.query.inventory_type,
 });
 
 const listProducts = async (req, res, next) => {

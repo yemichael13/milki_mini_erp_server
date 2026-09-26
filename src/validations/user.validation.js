@@ -18,12 +18,12 @@ const updateUserSchema = Joi.object({
     "production_approver"
   ),
   is_active: Joi.boolean(),
-  password: Joi.string().min(6),
+  password: Joi.string().min(8).max(128),
 }).min(1);
 
 const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
+  password: Joi.string().min(8).max(128).required(),
   full_name: Joi.string().min(1).required(),
   role: Joi.string()
     .valid(

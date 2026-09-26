@@ -48,4 +48,17 @@ const summary = async (req, res, next) => {
   }
 };
 
-module.exports = { customerCredit, supplierDebt, summary };
+const transactionHistory = async (req, res, next) => {
+  try {
+    const { from_date, to_date, type, status, source_department, format } = req.query;
+    const data = await reportService.transactionHistoryReport({ from_date, to_date, type, status, source_department }, format || "json");
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=transaction-history-report.csv");
+      return res.send(data);
+    }
+    res.json(data);
+  } catch (err) { next(err); }
+};
+
+module.exports = { customerCredit, supplierDebt, summary, transactionHistory };

@@ -13,10 +13,10 @@ async function runMigration() {
   });
 
   try {
-    const migrations = [
-      "003_unified_schema.sql",
-      "004_production_inventory.sql",
-    ];
+    const [tables] = await connection.query("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'");
+    const migrations = Number(tables[0].count) === 0
+      ? ["003_unified_schema.sql", "004_production_inventory.sql", "005_security_inventory_upgrade.sql"]
+      : ["005_security_inventory_upgrade.sql"];
 
     for (const migration of migrations) {
       const migrationPath = path.join(__dirname, "migrations", migration);

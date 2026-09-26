@@ -97,6 +97,7 @@ const listProducts = async (filters = {}) => {
       package_size_kg: filters.package_size_kg,
       package_label: filters.package_label,
       is_active: filters.is_active,
+      inventory_type: filters.inventory_type,
     }
   );
 };
